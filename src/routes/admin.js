@@ -4,7 +4,7 @@ const syncManager = require('../services/syncManager');
 const { pool } = require('../db');
 
 // Simple auth middleware (use a real auth system in production)
-const AUTH_TOKEN = process.env.ADMIN_TOKEN || 'eventorator-admin';
+const AUTH_TOKEN = process.env.ADMIN_TOKEN || 'eventgasm-admin';
 
 function authMiddleware(req, res, next) {
   const token = req.headers['x-admin-token'] || req.query.token;

@@ -1,4 +1,4 @@
-# Eventorator 🎉
+# Eventgasm 🎉
 
 Nationwide event aggregation service that pulls from multiple sources to give you a comprehensive view of events happening everywhere.
 
@@ -23,7 +23,7 @@ Nationwide event aggregation service that pulls from multiple sources to give yo
 
 1. Clone and install:
 ```bash
-cd eventorator
+cd eventgasm
 npm install
 ```
 
@@ -34,7 +34,7 @@ cp .env.sample .env
 
 3. Configure your `.env`:
 ```
-DATABASE_URL=postgresql://user:pass@localhost:5432/eventorator
+DATABASE_URL=postgresql://user:pass@localhost:5432/eventgasm
 PORT=4600
 BASE_URL=http://localhost:4600
 
@@ -47,7 +47,7 @@ SEATGEEK_CLIENT_SECRET=your_secret
 
 4. Create database:
 ```bash
-createdb eventorator
+createdb eventgasm
 ```
 
 5. Start the server:
@@ -106,7 +106,7 @@ Protected with `x-admin-token` header or `?token=` query param.
 | GET | `/admin/events/stats` | Detailed statistics |
 
 ```bash
-curl -H "x-admin-token: eventorator-admin" http://localhost:4600/admin/status
+curl -H "x-admin-token: eventgasm-admin" http://localhost:4600/admin/status
 ```
 
 ### Shareable Event Pages
@@ -162,7 +162,7 @@ You'll also need a PostgreSQL database on Render (or elsewhere).
 ## Project Structure
 
 ```
-eventorator/
+eventgasm/
 ├── src/
 │   ├── server.js          # Express app entry point
 │   ├── db.js              # Database connection + schema

@@ -1,5 +1,5 @@
 {
-  "name": "eventorator",
+  "name": "eventgasm",
   "version": "1.0.0",
   "description": "Nationwide event aggregation service",
   "main": "src/server.js",

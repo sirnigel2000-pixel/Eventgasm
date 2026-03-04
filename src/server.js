@@ -28,7 +28,7 @@ app.use('/admin', adminRouter);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'eventorator' });
+  res.json({ status: 'ok', service: 'eventgasm' });
 });
 
 // Shareable event page with Open Graph tags
@@ -60,7 +60,7 @@ app.get('/e/:id', async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(event.title)} | Eventorator</title>
+  <title>${escapeHtml(event.title)} | Eventgasm</title>
   
   <!-- Open Graph (Facebook, iMessage, etc.) -->
   <meta property="og:type" content="website">
@@ -68,7 +68,7 @@ app.get('/e/:id', async (req, res) => {
   <meta property="og:description" content="${escapeHtml(description)}">
   <meta property="og:url" content="${BASE_URL}/e/${event.id}">
   ${event.image_url ? `<meta property="og:image" content="${escapeHtml(event.image_url)}">` : ''}
-  <meta property="og:site_name" content="Eventorator">
+  <meta property="og:site_name" content="Eventgasm">
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
@@ -77,12 +77,12 @@ app.get('/e/:id', async (req, res) => {
   ${event.image_url ? `<meta name="twitter:image" content="${escapeHtml(event.image_url)}">` : ''}
   
   <!-- App Deep Link (for when we have the mobile app) -->
-  <meta property="al:ios:url" content="eventorator://event/${event.id}">
+  <meta property="al:ios:url" content="eventgasm://event/${event.id}">
   <meta property="al:ios:app_store_id" content="YOUR_APP_STORE_ID">
-  <meta property="al:ios:app_name" content="Eventorator">
-  <meta property="al:android:url" content="eventorator://event/${event.id}">
-  <meta property="al:android:package" content="com.eventorator.app">
-  <meta property="al:android:app_name" content="Eventorator">
+  <meta property="al:ios:app_name" content="Eventgasm">
+  <meta property="al:android:url" content="eventgasm://event/${event.id}">
+  <meta property="al:android:package" content="com.eventgasm.app">
+  <meta property="al:android:app_name" content="Eventgasm">
   
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -231,11 +231,11 @@ app.get('/e/:id', async (req, res) => {
       
       <div class="buttons">
         ${event.ticket_url ? `<a href="${escapeHtml(event.ticket_url)}" class="btn btn-primary" target="_blank">Get Tickets</a>` : ''}
-        <a href="eventorator://event/${event.id}" class="btn btn-secondary">Open in App</a>
+        <a href="eventgasm://event/${event.id}" class="btn btn-secondary">Open in App</a>
       </div>
     </div>
     <div class="app-banner">
-      Find more events on <a href="${BASE_URL}">Eventorator</a>
+      Find more events on <a href="${BASE_URL}">Eventgasm</a>
     </div>
   </div>
 </body>
@@ -268,7 +268,7 @@ async function start() {
     syncManager.startScheduler();
     
     app.listen(PORT, () => {
-      console.log(`🎉 Eventorator running on ${BASE_URL}`);
+      console.log(`🎉 Eventgasm running on ${BASE_URL}`);
       console.log(`   API: ${BASE_URL}/api/events`);
       console.log(`   Share links: ${BASE_URL}/e/{event-id}`);
       console.log(`   Admin: ${BASE_URL}/admin/status`);
