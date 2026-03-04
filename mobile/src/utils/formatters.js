@@ -30,13 +30,3 @@ export function formatDistance(meters) {
   if (miles < 10) return `${miles.toFixed(1)} mi`;
   return `${Math.round(miles)} mi`;
 }
-
-export function formatPrice(price) {
-  if (!price) return null;
-  if (price.isFree) return 'Free';
-  if (price.min && price.max) {
-    return `$${price.min} - $${price.max}`;
-  }
-  if (price.min) return `From $${price.min}`;
-  return null;
-}

@@ -17,16 +17,4 @@ export async function fetchEventById(id) {
   return data;
 }
 
-export async function fetchCategories() {
-  const { data } = await api.get('/categories');
-  return data;
-}
-
-export async function searchEvents(query, params = {}) {
-  const { data } = await api.get('/events', { 
-    params: { ...params, search: query } 
-  });
-  return data;
-}
-
 export default api;

@@ -10,7 +10,7 @@ import {
   Share,
   Dimensions
 } from 'react-native';
-import { formatEventDate, formatPrice } from '../utils/formatters';
+import { formatEventDate } from '../utils/formatters';
 
 const { width } = Dimensions.get('window');
 
@@ -123,13 +123,6 @@ export default function EventDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {event.ageRestriction && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Age Restriction</Text>
-              <Text style={styles.infoValue}>{event.ageRestriction}</Text>
-            </View>
-          )}
-
           <View style={styles.sourceRow}>
             <Text style={styles.sourceLabel}>via</Text>
             <Text style={styles.sourceName}>{event.source}</Text>
@@ -139,10 +132,8 @@ export default function EventDetailScreen({ route, navigation }) {
 
       <View style={styles.footer}>
         <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>Price</Text>
-          <Text style={styles.price}>
-            {formatPrice(event.price) || 'See tickets'}
-          </Text>
+          <Text style={styles.priceLabel}>Tickets</Text>
+          <Text style={styles.price}>Available</Text>
         </View>
         
         <TouchableOpacity 
@@ -316,22 +307,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#444',
     lineHeight: 22,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#888',
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a1a',
   },
   sourceRow: {
     flexDirection: 'row',

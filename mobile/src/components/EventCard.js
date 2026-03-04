@@ -10,7 +10,6 @@ import {
 import { formatEventDate, formatDistance } from '../utils/formatters';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - 32;
 
 export default function EventCard({ event, onPress }) {
   return (
