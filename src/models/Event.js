@@ -4,12 +4,56 @@ class Event {
   // Upsert event (insert or update if exists)
   static async upsert(eventData) {
     const {
-      source, source_id, title, description, category, subcategory,
-      venue_name, address, city, state, zip, country, latitude, longitude,
-      start_time, end_time, timezone, is_all_day,
-      image_url, ticket_url, price_min, price_max, is_free, age_restriction,
+      externalId,      // New: allows source-agnostic external IDs
+      source, 
+      source_id,       // Legacy: keep for backwards compat
+      title, description, category, subcategory,
+      venueName, venue_name,  // Support both formats
+      venueAddress, address,
+      city, state, zip, country, 
+      latitude, lat,   // Support both formats
+      longitude, lng,
+      startTime, start_time,
+      endTime, end_time,
+      timezone, 
+      isAllDay, is_all_day,
+      imageUrl, image_url, 
+      ticketUrl, ticket_url, 
+      priceMin, price_min, 
+      priceMax, price_max, 
+      isFree, is_free, 
+      ageRestriction, age_restriction,
       raw_data
     } = eventData;
+
+    // Normalize field names
+    const normalizedData = {
+      source,
+      source_id: source_id || externalId,
+      title,
+      description,
+      category,
+      subcategory,
+      venue_name: venue_name || venueName,
+      address: address || venueAddress,
+      city,
+      state,
+      zip,
+      country: country || 'US',
+      latitude: latitude || lat,
+      longitude: longitude || lng,
+      start_time: start_time || startTime,
+      end_time: end_time || endTime,
+      timezone,
+      is_all_day: is_all_day || isAllDay || false,
+      image_url: image_url || imageUrl,
+      ticket_url: ticket_url || ticketUrl,
+      price_min: price_min || priceMin,
+      price_max: price_max || priceMax,
+      is_free: is_free ?? isFree ?? false,
+      age_restriction: age_restriction || ageRestriction,
+      raw_data
+    };
 
     const result = await pool.query(`
       INSERT INTO events (
@@ -36,18 +80,23 @@ class Event {
         updated_at = NOW()
       RETURNING *
     `, [
-      source, source_id, title, description, category, subcategory,
-      venue_name, address, city, state, zip, country || 'US', latitude, longitude,
-      start_time, end_time, timezone, is_all_day || false,
-      image_url, ticket_url, price_min, price_max, is_free || false, age_restriction,
-      JSON.stringify(raw_data || {})
+      normalizedData.source, normalizedData.source_id, normalizedData.title, 
+      normalizedData.description, normalizedData.category, normalizedData.subcategory,
+      normalizedData.venue_name, normalizedData.address, normalizedData.city, 
+      normalizedData.state, normalizedData.zip, normalizedData.country, 
+      normalizedData.latitude, normalizedData.longitude,
+      normalizedData.start_time, normalizedData.end_time, normalizedData.timezone, 
+      normalizedData.is_all_day,
+      normalizedData.image_url, normalizedData.ticket_url, normalizedData.price_min, 
+      normalizedData.price_max, normalizedData.is_free, normalizedData.age_restriction,
+      JSON.stringify(normalizedData.raw_data || {})
     ]);
 
     return result.rows[0];
   }
 
   // Find events near a location
-  static async findNearby({ latitude, longitude, radiusMiles = 25, limit = 50, offset = 0, category, startDate, endDate }) {
+  static async findNearby({ latitude, longitude, radiusMiles = 25, limit = 50, offset = 0, category, startDate, endDate, isFree, source }) {
     let query = `
       SELECT *,
         (3959 * acos(
@@ -65,6 +114,16 @@ class Event {
     if (category) {
       query += ` AND category = $${paramIndex}`;
       params.push(category);
+      paramIndex++;
+    }
+
+    if (isFree) {
+      query += ` AND is_free = true`;
+    }
+
+    if (source) {
+      query += ` AND source = $${paramIndex}`;
+      params.push(source);
       paramIndex++;
     }
 
@@ -96,7 +155,7 @@ class Event {
   }
 
   // Find events by city/state
-  static async findByLocation({ city, state, limit = 50, offset = 0, category, startDate, endDate }) {
+  static async findByLocation({ city, state, limit = 50, offset = 0, category, startDate, endDate, isFree, source }) {
     let query = `
       SELECT * FROM events
       WHERE start_time >= NOW()
@@ -122,6 +181,16 @@ class Event {
       paramIndex++;
     }
 
+    if (isFree) {
+      query += ` AND is_free = true`;
+    }
+
+    if (source) {
+      query += ` AND source = $${paramIndex}`;
+      params.push(source);
+      paramIndex++;
+    }
+
     if (startDate) {
       query += ` AND start_time >= $${paramIndex}`;
       params.push(startDate);
@@ -141,9 +210,44 @@ class Event {
     return result.rows;
   }
 
+  // Find FREE events only
+  static async findFreeEvents({ state, city, category, limit = 50, offset = 0 }) {
+    let query = `
+      SELECT * FROM events
+      WHERE start_time >= NOW()
+        AND is_free = true
+    `;
+    const params = [];
+    let paramIndex = 1;
+
+    if (state) {
+      query += ` AND LOWER(state) = LOWER($${paramIndex})`;
+      params.push(state);
+      paramIndex++;
+    }
+
+    if (city) {
+      query += ` AND LOWER(city) = LOWER($${paramIndex})`;
+      params.push(city);
+      paramIndex++;
+    }
+
+    if (category) {
+      query += ` AND category = $${paramIndex}`;
+      params.push(category);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY start_time ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    const result = await pool.query(query, params);
+    return result.rows;
+  }
+
   // Search events by text
-  static async search({ query: searchQuery, limit = 50, offset = 0 }) {
-    const result = await pool.query(`
+  static async search({ query: searchQuery, limit = 50, offset = 0, isFree, source, category }) {
+    let query = `
       SELECT * FROM events
       WHERE start_time >= NOW()
         AND (
@@ -152,9 +256,30 @@ class Event {
           OR venue_name ILIKE $1
           OR city ILIKE $1
         )
-      ORDER BY start_time ASC
-      LIMIT $2 OFFSET $3
-    `, [`%${searchQuery}%`, limit, offset]);
+    `;
+    const params = [`%${searchQuery}%`];
+    let paramIndex = 2;
+
+    if (isFree) {
+      query += ` AND is_free = true`;
+    }
+
+    if (source) {
+      query += ` AND source = $${paramIndex}`;
+      params.push(source);
+      paramIndex++;
+    }
+
+    if (category) {
+      query += ` AND category = $${paramIndex}`;
+      params.push(category);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY start_time ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    const result = await pool.query(query, params);
     return result.rows;
   }
 
@@ -165,24 +290,56 @@ class Event {
   }
 
   // Get events by category
-  static async findByCategory({ category, limit = 50, offset = 0 }) {
-    const result = await pool.query(`
+  static async findByCategory({ category, limit = 50, offset = 0, isFree, source }) {
+    let query = `
       SELECT * FROM events
       WHERE category = $1 AND start_time >= NOW()
-      ORDER BY start_time ASC
-      LIMIT $2 OFFSET $3
-    `, [category, limit, offset]);
+    `;
+    const params = [category];
+    let paramIndex = 2;
+
+    if (isFree) {
+      query += ` AND is_free = true`;
+    }
+
+    if (source) {
+      query += ` AND source = $${paramIndex}`;
+      params.push(source);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY start_time ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    const result = await pool.query(query, params);
     return result.rows;
   }
 
   // Get trending/popular (most recently added or updated)
-  static async getTrending({ limit = 20 }) {
-    const result = await pool.query(`
+  static async getTrending({ limit = 20, state, source }) {
+    let query = `
       SELECT * FROM events
       WHERE start_time >= NOW() AND start_time <= NOW() + INTERVAL '7 days'
-      ORDER BY created_at DESC
-      LIMIT $1
-    `, [limit]);
+    `;
+    const params = [];
+    let paramIndex = 1;
+
+    if (state) {
+      query += ` AND LOWER(state) = LOWER($${paramIndex})`;
+      params.push(state);
+      paramIndex++;
+    }
+
+    if (source) {
+      query += ` AND source = $${paramIndex}`;
+      params.push(source);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
+    params.push(limit);
+
+    const result = await pool.query(query, params);
     return result.rows;
   }
 
@@ -193,6 +350,18 @@ class Event {
       FROM events
       WHERE start_time >= NOW()
       GROUP BY category
+      ORDER BY count DESC
+    `);
+    return result.rows;
+  }
+
+  // Get source distribution
+  static async getSourceCounts() {
+    const result = await pool.query(`
+      SELECT source, COUNT(*) as count
+      FROM events
+      WHERE start_time >= NOW()
+      GROUP BY source
       ORDER BY count DESC
     `);
     return result.rows;

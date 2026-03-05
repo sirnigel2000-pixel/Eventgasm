@@ -4,8 +4,21 @@ const { pool } = require('../db');
 
 // Import all source integrations
 const ticketmaster = require('./ticketmaster');
-const eventbrite = require('./eventbrite');
 const seatgeek = require('./seatgeek');
+let allevents, bandsintown;
+
+// Dynamic imports for new sources
+try {
+  allevents = require('./allevents');
+} catch (e) {
+  console.log('[SyncManager] AllEvents module not available');
+}
+
+try {
+  bandsintown = require('./bandsintown');
+} catch (e) {
+  console.log('[SyncManager] Bandsintown module not available');
+}
 
 // Track sync status
 let isSyncing = false;
@@ -37,8 +50,9 @@ async function runFullSync() {
 
   const stats = {
     ticketmaster: 0,
-    eventbrite: 0,
     seatgeek: 0,
+    allevents: 0,
+    bandsintown: 0,
     errors: []
   };
 
@@ -53,16 +67,6 @@ async function runFullSync() {
       await logSync('ticketmaster', 'US', 0, 0, 'error', err.message);
     }
 
-    // Eventbrite (major cities)
-    console.log('[SyncManager] Syncing Eventbrite...');
-    try {
-      stats.eventbrite = await eventbrite.syncMajorCities();
-      await logSync('eventbrite', 'US-cities', stats.eventbrite, 0, 'success');
-    } catch (err) {
-      stats.errors.push(`Eventbrite: ${err.message}`);
-      await logSync('eventbrite', 'US-cities', 0, 0, 'error', err.message);
-    }
-
     // SeatGeek (major metros)
     console.log('[SyncManager] Syncing SeatGeek...');
     try {
@@ -71,6 +75,30 @@ async function runFullSync() {
     } catch (err) {
       stats.errors.push(`SeatGeek: ${err.message}`);
       await logSync('seatgeek', 'US-metros', 0, 0, 'error', err.message);
+    }
+
+    // AllEvents (local/community events - Florida focus)
+    if (allevents) {
+      console.log('[SyncManager] Syncing AllEvents...');
+      try {
+        stats.allevents = await allevents.syncAll();
+        await logSync('allevents', 'FL', stats.allevents, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`AllEvents: ${err.message}`);
+        await logSync('allevents', 'FL', 0, 0, 'error', err.message);
+      }
+    }
+
+    // Bandsintown (local music)
+    if (bandsintown) {
+      console.log('[SyncManager] Syncing Bandsintown...');
+      try {
+        stats.bandsintown = await bandsintown.syncAll();
+        await logSync('bandsintown', 'FL', stats.bandsintown, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Bandsintown: ${err.message}`);
+        await logSync('bandsintown', 'FL', 0, 0, 'error', err.message);
+      }
     }
 
   } catch (error) {
@@ -87,12 +115,13 @@ async function runFullSync() {
   }
 
   const duration = Math.round((Date.now() - startTime) / 1000);
-  const total = stats.ticketmaster + stats.eventbrite + stats.seatgeek;
+  const total = stats.ticketmaster + stats.seatgeek + stats.allevents + stats.bandsintown;
   
   console.log(`[SyncManager] Sync complete in ${duration}s`);
   console.log(`  - Ticketmaster: ${stats.ticketmaster}`);
-  console.log(`  - Eventbrite: ${stats.eventbrite}`);
   console.log(`  - SeatGeek: ${stats.seatgeek}`);
+  console.log(`  - AllEvents: ${stats.allevents}`);
+  console.log(`  - Bandsintown: ${stats.bandsintown}`);
   console.log(`  - Total: ${total}`);
   if (stats.errors.length) {
     console.log(`  - Errors: ${stats.errors.join('; ')}`);
@@ -102,6 +131,60 @@ async function runFullSync() {
   lastSyncStats = stats;
   isSyncing = false;
 
+  return stats;
+}
+
+// Florida-focused sync - local events
+async function runFloridaSync() {
+  if (isSyncing) {
+    console.log('[SyncManager] Sync already in progress, skipping...');
+    return;
+  }
+
+  isSyncing = true;
+  console.log('[SyncManager] Starting Florida local events sync...');
+
+  const stats = { 
+    ticketmaster: 0,
+    allevents: 0, 
+    bandsintown: 0,
+    total: 0 
+  };
+
+  try {
+    // Ticketmaster Florida only
+    console.log('[SyncManager] Syncing Ticketmaster FL...');
+    try {
+      stats.ticketmaster = await ticketmaster.syncState('FL');
+    } catch (err) {
+      console.error(`Ticketmaster FL error: ${err.message}`);
+    }
+
+    // AllEvents (community events)
+    if (allevents) {
+      try {
+        stats.allevents = await allevents.syncAll();
+      } catch (err) {
+        console.error(`AllEvents error: ${err.message}`);
+      }
+    }
+
+    // Bandsintown (local music)
+    if (bandsintown) {
+      try {
+        stats.bandsintown = await bandsintown.syncAll();
+      } catch (err) {
+        console.error(`Bandsintown error: ${err.message}`);
+      }
+    }
+
+    stats.total = stats.ticketmaster + stats.allevents + stats.bandsintown;
+  } catch (error) {
+    console.error('[SyncManager] Florida sync error:', error);
+  }
+
+  isSyncing = false;
+  console.log(`[SyncManager] Florida sync complete: ${stats.total} events`);
   return stats;
 }
 
@@ -118,20 +201,16 @@ async function runQuickSync() {
   const stats = { total: 0 };
 
   try {
-    // Just sync a few major cities quickly
-    const quickCities = [
-      { city: 'New York', state: 'NY' },
-      { city: 'Los Angeles', state: 'CA' },
-      { city: 'Chicago', state: 'IL' },
-      { city: 'Philadelphia', state: 'PA' }
-    ];
-
-    for (const { city, state } of quickCities) {
-      try {
-        const added = await eventbrite.syncCity(city, state);
-        stats.total += added;
-      } catch (err) {
-        console.error(`Quick sync error for ${city}: ${err.message}`);
+    // Quick Florida cities from AllEvents
+    if (allevents) {
+      const quickCities = ['Miami', 'Orlando', 'Tampa'];
+      for (const city of quickCities) {
+        try {
+          const added = await allevents.syncCity(city);
+          stats.total += added;
+        } catch (err) {
+          console.error(`Quick sync error for ${city}: ${err.message}`);
+        }
       }
     }
   } catch (error) {
@@ -144,10 +223,16 @@ async function runQuickSync() {
 
 // Schedule automatic syncs
 function startScheduler() {
-  // Full sync every 6 hours
-  cron.schedule('0 */6 * * *', () => {
+  // Full sync every 12 hours
+  cron.schedule('0 */12 * * *', () => {
     console.log('[Scheduler] Running scheduled full sync...');
     runFullSync();
+  });
+
+  // Florida focus sync every 4 hours
+  cron.schedule('0 */4 * * *', () => {
+    console.log('[Scheduler] Running scheduled Florida sync...');
+    runFloridaSync();
   });
 
   // Quick sync every hour
@@ -157,8 +242,9 @@ function startScheduler() {
   });
 
   console.log('[Scheduler] Sync scheduler started');
-  console.log('  - Full sync: every 6 hours (0 */6 * * *)');
-  console.log('  - Quick sync: every hour at :30 (30 * * * *)');
+  console.log('  - Full sync: every 12 hours');
+  console.log('  - Florida sync: every 4 hours');
+  console.log('  - Quick sync: every hour at :30');
 }
 
 // Get sync status
@@ -172,6 +258,7 @@ function getStatus() {
 
 module.exports = {
   runFullSync,
+  runFloridaSync,
   runQuickSync,
   startScheduler,
   getStatus

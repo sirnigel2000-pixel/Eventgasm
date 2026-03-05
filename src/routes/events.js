@@ -9,19 +9,28 @@ router.get('/', async (req, res) => {
       lat, lng, radius = 25,
       city, state,
       category,
+      free,        // New: filter for free events only
+      source,      // New: filter by source (allevents, ticketmaster, etc.)
+      vibe,        // New: vibe filter (chill, rowdy, artsy, etc.)
       start_date, end_date,
-      q, // search query
+      q, search,   // search query (support both)
       limit = 50, offset = 0
     } = req.query;
 
+    const query = q || search;
+    const isFreeOnly = free === 'true' || free === '1';
+
     let events;
 
-    if (q) {
+    if (query) {
       // Text search
       events = await Event.search({
-        query: q,
+        query,
         limit: parseInt(limit),
-        offset: parseInt(offset)
+        offset: parseInt(offset),
+        isFree: isFreeOnly,
+        source,
+        category
       });
     } else if (lat && lng) {
       // Geospatial search
@@ -33,7 +42,9 @@ router.get('/', async (req, res) => {
         offset: parseInt(offset),
         category,
         startDate: start_date,
-        endDate: end_date
+        endDate: end_date,
+        isFree: isFreeOnly,
+        source
       });
     } else if (city || state) {
       // Location-based search
@@ -44,18 +55,33 @@ router.get('/', async (req, res) => {
         offset: parseInt(offset),
         category,
         startDate: start_date,
-        endDate: end_date
+        endDate: end_date,
+        isFree: isFreeOnly,
+        source
       });
     } else if (category) {
       // Category filter
       events = await Event.findByCategory({
         category,
         limit: parseInt(limit),
-        offset: parseInt(offset)
+        offset: parseInt(offset),
+        isFree: isFreeOnly,
+        source
+      });
+    } else if (isFreeOnly) {
+      // Free events only
+      events = await Event.findFreeEvents({
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        state
       });
     } else {
       // Trending/default
-      events = await Event.getTrending({ limit: parseInt(limit) });
+      events = await Event.getTrending({ 
+        limit: parseInt(limit),
+        state,
+        source
+      });
     }
 
     res.json({
@@ -69,11 +95,61 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/events/free - Free events only (convenience endpoint)
+router.get('/free', async (req, res) => {
+  try {
+    const { state = 'FL', city, limit = 50, offset = 0, category } = req.query;
+    
+    const events = await Event.findFreeEvents({
+      state,
+      city,
+      category,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    res.json({
+      success: true,
+      count: events.length,
+      filter: 'free',
+      events: events.map(formatEvent)
+    });
+  } catch (error) {
+    console.error('Error fetching free events:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch free events' });
+  }
+});
+
+// GET /api/events/local - Local/community events (AllEvents, small venues)
+router.get('/local', async (req, res) => {
+  try {
+    const { state = 'FL', city, limit = 50, offset = 0 } = req.query;
+    
+    const events = await Event.findByLocation({
+      state,
+      city,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      source: 'allevents'  // Focus on community events
+    });
+
+    res.json({
+      success: true,
+      count: events.length,
+      filter: 'local',
+      events: events.map(formatEvent)
+    });
+  } catch (error) {
+    console.error('Error fetching local events:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch local events' });
+  }
+});
+
 // GET /api/events/trending
 router.get('/trending', async (req, res) => {
   try {
-    const { limit = 20 } = req.query;
-    const events = await Event.getTrending({ limit: parseInt(limit) });
+    const { limit = 20, state } = req.query;
+    const events = await Event.getTrending({ limit: parseInt(limit), state });
     res.json({
       success: true,
       count: events.length,
@@ -89,10 +165,45 @@ router.get('/trending', async (req, res) => {
 router.get('/categories', async (req, res) => {
   try {
     const categories = await Event.getCategoryCounts();
-    res.json({ success: true, categories });
+    
+    // Add curated vibes
+    const vibes = [
+      { id: 'free', name: 'Free', emoji: '🆓' },
+      { id: 'music', name: 'Live Music', emoji: '🎵' },
+      { id: 'food', name: 'Food & Drink', emoji: '🍻' },
+      { id: 'artsy', name: 'Arts & Culture', emoji: '🎨' },
+      { id: 'sports', name: 'Sports', emoji: '⚽' },
+      { id: 'nightlife', name: 'Nightlife', emoji: '🌙' },
+      { id: 'family', name: 'Family Friendly', emoji: '👨‍👩‍👧' },
+      { id: 'singles', name: 'Singles & Dating', emoji: '💘' },
+      { id: 'outdoor', name: 'Outdoor', emoji: '🌳' },
+      { id: 'community', name: 'Community', emoji: '🏘️' },
+    ];
+
+    res.json({ 
+      success: true, 
+      categories,
+      vibes
+    });
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch categories' });
+  }
+});
+
+// GET /api/events/sources - List available event sources
+router.get('/sources', async (req, res) => {
+  try {
+    const sources = [
+      { id: 'ticketmaster', name: 'Ticketmaster', type: 'major' },
+      { id: 'seatgeek', name: 'SeatGeek', type: 'major' },
+      { id: 'allevents', name: 'AllEvents', type: 'local' },
+      { id: 'bandsintown', name: 'Bandsintown', type: 'music' },
+    ];
+
+    res.json({ success: true, sources });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to fetch sources' });
   }
 });
 
@@ -143,9 +254,10 @@ function formatEvent(event) {
       max: event.price_max ? parseFloat(event.price_max) : null,
       isFree: event.is_free
     },
+    isFree: event.is_free,
     ageRestriction: event.age_restriction,
     source: event.source,
-    shareUrl: `${process.env.BASE_URL}/e/${event.id}`,
+    shareUrl: `${process.env.BASE_URL || 'https://eventgasm.onrender.com'}/e/${event.id}`,
     distance: event.distance_miles ? Math.round(event.distance_miles * 10) / 10 : null
   };
 }
