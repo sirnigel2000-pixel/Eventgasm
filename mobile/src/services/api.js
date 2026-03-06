@@ -8,13 +8,63 @@ const api = axios.create({
 });
 
 export async function fetchEvents(params = {}) {
-  const { data } = await api.get('/events', { params });
-  return data;
+  try {
+    const { data } = await api.get('/events', { params });
+    return data;
+  } catch (error) {
+    console.error('API Error:', error.message);
+    throw error;
+  }
+}
+
+export async function fetchFreeEvents(params = {}) {
+  try {
+    const { data } = await api.get('/events/free', { params });
+    return data;
+  } catch (error) {
+    console.error('API Error:', error.message);
+    throw error;
+  }
+}
+
+export async function fetchLocalEvents(params = {}) {
+  try {
+    const { data } = await api.get('/events/local', { params });
+    return data;
+  } catch (error) {
+    console.error('API Error:', error.message);
+    throw error;
+  }
+}
+
+export async function fetchTrending(params = {}) {
+  try {
+    const { data } = await api.get('/events/trending', { params });
+    return data;
+  } catch (error) {
+    console.error('API Error:', error.message);
+    throw error;
+  }
 }
 
 export async function fetchEventById(id) {
-  const { data } = await api.get(`/events/${id}`);
-  return data;
+  try {
+    const { data } = await api.get(`/events/${id}`);
+    return data;
+  } catch (error) {
+    console.error('API Error:', error.message);
+    throw error;
+  }
+}
+
+export async function fetchCategories() {
+  try {
+    const { data } = await api.get('/events/categories');
+    return data;
+  } catch (error) {
+    console.error('API Error:', error.message);
+    throw error;
+  }
 }
 
 export default api;

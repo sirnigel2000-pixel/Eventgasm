@@ -12,23 +12,41 @@ import { formatEventDate, formatDistance } from '../utils/formatters';
 const { width } = Dimensions.get('window');
 
 export default function EventCard({ event, onPress }) {
+  const isFree = event.isFree || event.price?.isFree;
+
   return (
     <TouchableOpacity 
       style={styles.card} 
       onPress={() => onPress(event)}
       activeOpacity={0.9}
     >
-      {event.image ? (
-        <Image 
-          source={{ uri: event.image }} 
-          style={styles.image}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={[styles.image, styles.placeholderImage]}>
-          <Text style={styles.placeholderEmoji}>🎉</Text>
-        </View>
-      )}
+      <View style={styles.imageContainer}>
+        {event.image ? (
+          <Image 
+            source={{ uri: event.image }} 
+            style={styles.image}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.image, styles.placeholderImage]}>
+            <Text style={styles.placeholderEmoji}>🎉</Text>
+          </View>
+        )}
+        
+        {/* FREE Badge */}
+        {isFree && (
+          <View style={styles.freeBadge}>
+            <Text style={styles.freeBadgeText}>FREE</Text>
+          </View>
+        )}
+
+        {/* Source Badge */}
+        {event.source === 'allevents' && (
+          <View style={styles.localBadge}>
+            <Text style={styles.localBadgeText}>LOCAL</Text>
+          </View>
+        )}
+      </View>
       
       <View style={styles.content}>
         <View style={styles.header}>
@@ -76,6 +94,9 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
   },
+  imageContainer: {
+    position: 'relative',
+  },
   image: {
     width: '100%',
     height: 160,
@@ -88,6 +109,34 @@ const styles = StyleSheet.create({
   },
   placeholderEmoji: {
     fontSize: 48,
+  },
+  freeBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: '#4caf50',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  freeBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  localBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#ff9800',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  localBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
   content: {
     padding: 16,

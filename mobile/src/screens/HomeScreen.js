@@ -8,37 +8,64 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   TextInput,
-  ScrollView
+  ScrollView,
+  Dimensions
 } from 'react-native';
 import * as Location from 'expo-location';
 import { fetchEvents } from '../services/api';
 import EventCard from '../components/EventCard';
 
-const CATEGORIES = ['All', 'Music', 'Sports', 'Arts', 'Comedy', 'Family', 'Other'];
-const US_STATES = [
-  { code: 'FL', name: 'Florida' },
-  { code: 'CA', name: 'California' },
-  { code: 'NY', name: 'New York' },
-  { code: 'TX', name: 'Texas' },
-  { code: 'PA', name: 'Pennsylvania' },
-  { code: 'GA', name: 'Georgia' },
-  { code: 'NC', name: 'North Carolina' },
-  { code: 'OH', name: 'Ohio' },
-  { code: 'IL', name: 'Illinois' },
-  { code: 'AZ', name: 'Arizona' },
+const { width } = Dimensions.get('window');
+
+const VIBES = [
+  { id: 'all', name: 'All', emoji: '✨' },
+  { id: 'free', name: 'Free', emoji: '🆓' },
+  { id: 'music', name: 'Music', emoji: '🎵' },
+  { id: 'food', name: 'Food & Drink', emoji: '🍻' },
+  { id: 'sports', name: 'Sports', emoji: '⚽' },
+  { id: 'arts', name: 'Arts', emoji: '🎨' },
+  { id: 'comedy', name: 'Comedy', emoji: '😂' },
+  { id: 'community', name: 'Local', emoji: '🏘️' },
+  { id: 'family', name: 'Family', emoji: '👨‍👩‍👧' },
+];
+
+const FL_CITIES = [
+  { name: 'All Florida', value: null },
+  { name: 'Miami', value: 'Miami' },
+  { name: 'Orlando', value: 'Orlando' },
+  { name: 'Tampa', value: 'Tampa' },
+  { name: 'Jacksonville', value: 'Jacksonville' },
+  { name: 'Fort Lauderdale', value: 'Fort Lauderdale' },
+  { name: 'West Palm Beach', value: 'West Palm Beach' },
 ];
 
 export default function HomeScreen({ navigation }) {
   const [events, setEvents] = useState([]);
+  const [freeEvents, setFreeEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedState, setSelectedState] = useState('FL');
+  const [selectedVibe, setSelectedVibe] = useState('all');
+  const [selectedCity, setSelectedCity] = useState(null);
   const [location, setLocation] = useState(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFreeSection, setShowFreeSection] = useState(true);
+
+  // Load free events for the spotlight section
+  const loadFreeEvents = useCallback(async () => {
+    try {
+      const data = await fetchEvents({
+        state: 'FL',
+        free: 'true',
+        limit: 10,
+      });
+      setFreeEvents(data.events || []);
+    } catch (error) {
+      console.error('Failed to load free events:', error);
+    }
+  }, []);
 
   const loadEvents = useCallback(async (reset = false) => {
     try {
@@ -46,11 +73,30 @@ export default function HomeScreen({ navigation }) {
       const params = {
         limit: 20,
         offset: (currentPage - 1) * 20,
-        state: selectedState,
+        state: 'FL',
       };
 
-      if (selectedCategory !== 'All') {
-        params.category = selectedCategory;
+      if (selectedCity) {
+        params.city = selectedCity;
+      }
+
+      if (selectedVibe === 'free') {
+        params.free = 'true';
+      } else if (selectedVibe === 'community') {
+        params.source = 'allevents';
+      } else if (selectedVibe !== 'all') {
+        // Map vibe to category
+        const vibeToCategory = {
+          'music': 'Music',
+          'food': 'Food & Drink',
+          'sports': 'Sports',
+          'arts': 'Arts & Theatre',
+          'comedy': 'Comedy',
+          'family': 'Family',
+        };
+        if (vibeToCategory[selectedVibe]) {
+          params.category = vibeToCategory[selectedVibe];
+        }
       }
 
       if (searchQuery.trim()) {
@@ -76,7 +122,7 @@ export default function HomeScreen({ navigation }) {
     } catch (error) {
       console.error('Failed to load events:', error);
     }
-  }, [page, selectedCategory, selectedState, location, searchQuery]);
+  }, [page, selectedVibe, selectedCity, location, searchQuery]);
 
   useEffect(() => {
     (async () => {
@@ -91,14 +137,17 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     setLoading(true);
     setPage(1);
-    loadEvents(true).finally(() => setLoading(false));
-  }, [selectedCategory, selectedState]);
+    Promise.all([
+      loadEvents(true),
+      loadFreeEvents()
+    ]).finally(() => setLoading(false));
+  }, [selectedVibe, selectedCity]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadEvents(true);
+    await Promise.all([loadEvents(true), loadFreeEvents()]);
     setRefreshing(false);
-  }, [loadEvents]);
+  }, [loadEvents, loadFreeEvents]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -118,14 +167,57 @@ export default function HomeScreen({ navigation }) {
     navigation.navigate('EventDetail', { event });
   };
 
+  // Free Events Spotlight Section
+  const renderFreeSpotlight = () => {
+    if (!showFreeSection || freeEvents.length === 0 || selectedVibe === 'free') {
+      return null;
+    }
+
+    return (
+      <View style={styles.spotlightSection}>
+        <View style={styles.spotlightHeader}>
+          <Text style={styles.spotlightTitle}>🆓 Free This Week</Text>
+          <TouchableOpacity onPress={() => setSelectedVibe('free')}>
+            <Text style={styles.seeAllText}>See all →</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.spotlightScroll}
+        >
+          {freeEvents.slice(0, 5).map((event) => (
+            <TouchableOpacity 
+              key={event.id} 
+              style={styles.spotlightCard}
+              onPress={() => handleEventPress(event)}
+            >
+              <View style={styles.freeBadge}>
+                <Text style={styles.freeBadgeText}>FREE</Text>
+              </View>
+              <Text style={styles.spotlightCardTitle} numberOfLines={2}>
+                {event.title}
+              </Text>
+              <Text style={styles.spotlightCardLocation} numberOfLines={1}>
+                📍 {event.venue?.city || 'Florida'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderHeader = () => (
     <View style={styles.header}>
       <Text style={styles.logo}>🎉 Eventgasm</Text>
+      <Text style={styles.tagline}>Find the fun. Skip the search.</Text>
       
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search events..."
+          placeholder="Search events, venues, artists..."
+          placeholderTextColor="#999"
           value={searchQuery}
           onChangeText={setSearchQuery}
           onSubmitEditing={handleSearch}
@@ -133,53 +225,60 @@ export default function HomeScreen({ navigation }) {
         />
       </View>
 
+      {/* City Picker */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
-        style={styles.stateScroll}
+        style={styles.cityScroll}
       >
-        {US_STATES.map(state => (
+        {FL_CITIES.map(city => (
           <TouchableOpacity
-            key={state.code}
+            key={city.name}
             style={[
-              styles.stateChip,
-              selectedState === state.code && styles.stateChipSelected
+              styles.cityChip,
+              selectedCity === city.value && styles.cityChipSelected
             ]}
-            onPress={() => setSelectedState(state.code)}
+            onPress={() => setSelectedCity(city.value)}
           >
             <Text style={[
-              styles.stateChipText,
-              selectedState === state.code && styles.stateChipTextSelected
+              styles.cityChipText,
+              selectedCity === city.value && styles.cityChipTextSelected
             ]}>
-              {state.name}
+              {city.name}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
+      {/* Vibe Filters */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
-        style={styles.categoryScroll}
+        style={styles.vibeScroll}
       >
-        {CATEGORIES.map(cat => (
+        {VIBES.map(vibe => (
           <TouchableOpacity
-            key={cat}
+            key={vibe.id}
             style={[
-              styles.categoryChip,
-              selectedCategory === cat && styles.categoryChipSelected
+              styles.vibeChip,
+              selectedVibe === vibe.id && styles.vibeChipSelected,
+              vibe.id === 'free' && styles.vibeChipFree
             ]}
-            onPress={() => setSelectedCategory(cat)}
+            onPress={() => setSelectedVibe(vibe.id)}
           >
+            <Text style={styles.vibeEmoji}>{vibe.emoji}</Text>
             <Text style={[
-              styles.categoryChipText,
-              selectedCategory === cat && styles.categoryChipTextSelected
+              styles.vibeChipText,
+              selectedVibe === vibe.id && styles.vibeChipTextSelected
             ]}>
-              {cat}
+              {vibe.name}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Free Events Spotlight */}
+      {renderFreeSpotlight()}
     </View>
   );
 
@@ -187,7 +286,7 @@ export default function HomeScreen({ navigation }) {
     return (
       <View style={styles.centered}>
         {renderHeader()}
-        <ActivityIndicator size="large" color="#667eea" />
+        <ActivityIndicator size="large" color="#667eea" style={{ marginTop: 40 }} />
         <Text style={styles.loadingText}>Finding amazing events...</Text>
       </View>
     );
@@ -206,7 +305,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>🔍</Text>
             <Text style={styles.emptyText}>No events found</Text>
-            <Text style={styles.emptySubtext}>Try a different category or location</Text>
+            <Text style={styles.emptySubtext}>Try a different vibe or location</Text>
           </View>
         }
         ListFooterComponent={
@@ -248,9 +347,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logo: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '800',
     color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  tagline: {
+    fontSize: 14,
+    color: '#888',
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -265,48 +370,116 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
   },
-  stateScroll: {
+  cityScroll: {
     paddingHorizontal: 12,
     marginBottom: 12,
   },
-  stateChip: {
+  cityChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#f0f0f0',
     marginHorizontal: 4,
   },
-  stateChipSelected: {
+  cityChipSelected: {
     backgroundColor: '#667eea',
   },
-  stateChipText: {
+  cityChipText: {
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
   },
-  stateChipTextSelected: {
+  cityChipTextSelected: {
     color: '#fff',
   },
-  categoryScroll: {
+  vibeScroll: {
     paddingHorizontal: 12,
+    marginBottom: 16,
   },
-  categoryChip: {
-    paddingHorizontal: 16,
+  vibeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#f0f0f0',
     marginHorizontal: 4,
   },
-  categoryChipSelected: {
+  vibeChipSelected: {
     backgroundColor: '#1a1a1a',
   },
-  categoryChipText: {
+  vibeChipFree: {
+    backgroundColor: '#e8f5e9',
+  },
+  vibeEmoji: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  vibeChipText: {
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
   },
-  categoryChipTextSelected: {
+  vibeChipTextSelected: {
     color: '#fff',
+  },
+  // Spotlight Section
+  spotlightSection: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  spotlightHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  spotlightTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  spotlightScroll: {
+    paddingHorizontal: 12,
+  },
+  spotlightCard: {
+    width: 160,
+    backgroundColor: '#e8f5e9',
+    borderRadius: 12,
+    padding: 12,
+    marginHorizontal: 4,
+  },
+  freeBadge: {
+    backgroundColor: '#4caf50',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  freeBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  spotlightCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  spotlightCardLocation: {
+    fontSize: 12,
+    color: '#666',
   },
   listContent: {
     paddingBottom: 100,
