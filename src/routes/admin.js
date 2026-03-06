@@ -25,7 +25,8 @@ router.get('/status', authMiddleware, async (req, res) => {
         COUNT(*) as total,
         COUNT(CASE WHEN start_time >= NOW() THEN 1 END) as upcoming,
         COUNT(DISTINCT source) as sources,
-        COUNT(DISTINCT category) as categories
+        COUNT(DISTINCT category) as categories,
+        COUNT(CASE WHEN is_free = true AND start_time >= NOW() THEN 1 END) as free_events
       FROM events
     `);
 
@@ -79,6 +80,22 @@ router.post('/sync/quick', authMiddleware, async (req, res) => {
   res.json({ message: 'Quick sync started', status: 'running' });
 });
 
+// POST /admin/sync/florida - Trigger Florida-focused sync (local events)
+router.post('/sync/florida', authMiddleware, async (req, res) => {
+  const status = syncManager.getStatus();
+  if (status.isSyncing) {
+    return res.status(409).json({ error: 'Sync already in progress' });
+  }
+
+  // Start Florida sync in background
+  if (syncManager.runFloridaSync) {
+    syncManager.runFloridaSync();
+    res.json({ message: 'Florida local events sync started', status: 'running' });
+  } else {
+    res.status(501).json({ error: 'Florida sync not available' });
+  }
+});
+
 // GET /admin/events/stats - Detailed event statistics
 router.get('/events/stats', authMiddleware, async (req, res) => {
   try {
@@ -110,10 +127,41 @@ router.get('/events/stats', authMiddleware, async (req, res) => {
       ORDER BY date
     `);
 
+    // Free events count
+    const freeStats = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM events
+      WHERE start_time >= NOW() AND is_free = true
+    `);
+
     res.json({
       byCategory: categoryStats.rows,
       byState: stateStats.rows,
-      byDate: dateStats.rows
+      byDate: dateStats.rows,
+      freeEvents: freeStats.rows[0]?.count || 0
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /admin/events/mark-free - Mark events as free based on patterns
+router.post('/events/mark-free', authMiddleware, async (req, res) => {
+  try {
+    // Mark events as free if they have no price or price is 0
+    const result = await pool.query(`
+      UPDATE events 
+      SET is_free = true 
+      WHERE (price_min IS NULL OR price_min = 0) 
+        AND (price_max IS NULL OR price_max = 0)
+        AND is_free = false
+        AND start_time >= NOW()
+      RETURNING id
+    `);
+
+    res.json({ 
+      message: 'Events marked as free',
+      count: result.rowCount 
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
