@@ -5,7 +5,7 @@ const { pool } = require('../db');
 // Import all source integrations
 const ticketmaster = require('./ticketmaster');
 const seatgeek = require('./seatgeek');
-let allevents, bandsintown;
+let allevents, bandsintown, libraryEvents, parksAndRec;
 
 // Dynamic imports for new sources
 try {
@@ -18,6 +18,18 @@ try {
   bandsintown = require('./bandsintown');
 } catch (e) {
   console.log('[SyncManager] Bandsintown module not available');
+}
+
+try {
+  libraryEvents = require('./libraryEvents');
+} catch (e) {
+  console.log('[SyncManager] Library Events module not available');
+}
+
+try {
+  parksAndRec = require('./parksAndRec');
+} catch (e) {
+  console.log('[SyncManager] Parks & Rec module not available');
 }
 
 // Track sync status
@@ -148,6 +160,8 @@ async function runFloridaSync() {
     ticketmaster: 0,
     allevents: 0, 
     bandsintown: 0,
+    library: 0,
+    parks: 0,
     total: 0 
   };
 
@@ -178,13 +192,57 @@ async function runFloridaSync() {
       }
     }
 
-    stats.total = stats.ticketmaster + stats.allevents + stats.bandsintown;
+    // Library Events (FREE community events)
+    if (libraryEvents) {
+      console.log('[SyncManager] Syncing Library Events...');
+      try {
+        const events = await libraryEvents.syncAll();
+        stats.library = events.length;
+        // Upsert library events to database
+        for (const event of events) {
+          try {
+            await Event.upsert(event);
+          } catch (e) {
+            // Skip duplicates
+          }
+        }
+        await logSync('library', 'FL', stats.library, 0, 'success');
+      } catch (err) {
+        console.error(`Library Events error: ${err.message}`);
+        await logSync('library', 'FL', 0, 0, 'error', err.message);
+      }
+    }
+
+    // Parks & Recreation Events (FREE community events)
+    if (parksAndRec) {
+      console.log('[SyncManager] Syncing Parks & Rec Events...');
+      try {
+        const events = await parksAndRec.syncAll();
+        stats.parks = events.length;
+        // Upsert parks events to database
+        for (const event of events) {
+          try {
+            await Event.upsert(event);
+          } catch (e) {
+            // Skip duplicates
+          }
+        }
+        await logSync('parks', 'FL', stats.parks, 0, 'success');
+      } catch (err) {
+        console.error(`Parks & Rec error: ${err.message}`);
+        await logSync('parks', 'FL', 0, 0, 'error', err.message);
+      }
+    }
+
+    stats.total = stats.ticketmaster + stats.allevents + stats.bandsintown + stats.library + stats.parks;
   } catch (error) {
     console.error('[SyncManager] Florida sync error:', error);
   }
 
   isSyncing = false;
   console.log(`[SyncManager] Florida sync complete: ${stats.total} events`);
+  console.log(`  - Library Events: ${stats.library}`);
+  console.log(`  - Parks & Rec: ${stats.parks}`);
   return stats;
 }
 
