@@ -7,44 +7,52 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-// Major Florida library systems with event calendars
+// Major US library systems with event calendars (Top 30 metros + Florida)
 const LIBRARY_SYSTEMS = [
-  {
-    name: 'Miami-Dade Public Library',
-    city: 'Miami',
-    url: 'https://mdpls.org/events',
-    type: 'librarymarket',
-  },
-  {
-    name: 'Orange County Library',
-    city: 'Orlando', 
-    url: 'https://www.ocls.info/events',
-    type: 'evanced',
-  },
-  {
-    name: 'Tampa-Hillsborough Public Library',
-    city: 'Tampa',
-    url: 'https://hcplc.org/events',
-    type: 'communico',
-  },
-  {
-    name: 'Jacksonville Public Library',
-    city: 'Jacksonville',
-    url: 'https://jaxpubliclibrary.org/events',
-    type: 'libcal',
-  },
-  {
-    name: 'Broward County Library',
-    city: 'Fort Lauderdale',
-    url: 'https://www.broward.org/Library/Pages/Events.aspx',
-    type: 'sharepoint',
-  },
-  {
-    name: 'Palm Beach County Library',
-    city: 'West Palm Beach', 
-    url: 'https://www.pbclibrary.org/events',
-    type: 'evanced',
-  },
+  // FLORIDA
+  { name: 'Miami-Dade Public Library', city: 'Miami', state: 'FL', url: 'https://mdpls.org/events', type: 'html' },
+  { name: 'Orange County Library', city: 'Orlando', state: 'FL', url: 'https://www.ocls.info/events', type: 'html' },
+  { name: 'Tampa-Hillsborough Public Library', city: 'Tampa', state: 'FL', url: 'https://hcplc.org/events', type: 'html' },
+  { name: 'Jacksonville Public Library', city: 'Jacksonville', state: 'FL', url: 'https://jaxpubliclibrary.org/events', type: 'libcal' },
+  { name: 'Broward County Library', city: 'Fort Lauderdale', state: 'FL', url: 'https://www.broward.org/Library/Pages/Events.aspx', type: 'html' },
+  { name: 'Palm Beach County Library', city: 'West Palm Beach', state: 'FL', url: 'https://www.pbclibrary.org/events', type: 'html' },
+  
+  // NORTHEAST
+  { name: 'New York Public Library', city: 'New York', state: 'NY', url: 'https://www.nypl.org/events', type: 'html' },
+  { name: 'Brooklyn Public Library', city: 'Brooklyn', state: 'NY', url: 'https://www.bklynlibrary.org/calendar', type: 'html' },
+  { name: 'Queens Public Library', city: 'Queens', state: 'NY', url: 'https://www.queenslibrary.org/programs-activities', type: 'html' },
+  { name: 'Free Library of Philadelphia', city: 'Philadelphia', state: 'PA', url: 'https://libwww.freelibrary.org/calendar/', type: 'html' },
+  { name: 'Boston Public Library', city: 'Boston', state: 'MA', url: 'https://www.bpl.org/events/', type: 'html' },
+  { name: 'DC Public Library', city: 'Washington', state: 'DC', url: 'https://www.dclibrary.org/events', type: 'html' },
+  
+  // MIDWEST
+  { name: 'Chicago Public Library', city: 'Chicago', state: 'IL', url: 'https://www.chipublib.org/events/', type: 'html' },
+  { name: 'Detroit Public Library', city: 'Detroit', state: 'MI', url: 'https://detroitpubliclibrary.org/events', type: 'html' },
+  { name: 'Cleveland Public Library', city: 'Cleveland', state: 'OH', url: 'https://cpl.org/events/', type: 'html' },
+  { name: 'Columbus Metropolitan Library', city: 'Columbus', state: 'OH', url: 'https://www.columbuslibrary.org/events', type: 'html' },
+  { name: 'Indianapolis Public Library', city: 'Indianapolis', state: 'IN', url: 'https://www.indypl.org/events', type: 'html' },
+  { name: 'Minneapolis Public Library', city: 'Minneapolis', state: 'MN', url: 'https://www.hclib.org/events', type: 'html' },
+  
+  // SOUTH
+  { name: 'Houston Public Library', city: 'Houston', state: 'TX', url: 'https://houstonlibrary.org/events', type: 'html' },
+  { name: 'Dallas Public Library', city: 'Dallas', state: 'TX', url: 'https://dallaslibrary.org/events', type: 'html' },
+  { name: 'Austin Public Library', city: 'Austin', state: 'TX', url: 'https://library.austintexas.gov/events', type: 'html' },
+  { name: 'San Antonio Public Library', city: 'San Antonio', state: 'TX', url: 'https://www.mysapl.org/Events-News/Events-Calendar', type: 'html' },
+  { name: 'Atlanta-Fulton Public Library', city: 'Atlanta', state: 'GA', url: 'https://www.fulcolibrary.org/events/', type: 'html' },
+  { name: 'Charlotte Mecklenburg Library', city: 'Charlotte', state: 'NC', url: 'https://www.cmlibrary.org/events', type: 'html' },
+  { name: 'Nashville Public Library', city: 'Nashville', state: 'TN', url: 'https://library.nashville.org/events', type: 'html' },
+  { name: 'New Orleans Public Library', city: 'New Orleans', state: 'LA', url: 'https://nolalibrary.org/events/', type: 'html' },
+  
+  // WEST
+  { name: 'Los Angeles Public Library', city: 'Los Angeles', state: 'CA', url: 'https://www.lapl.org/whats-on', type: 'html' },
+  { name: 'San Francisco Public Library', city: 'San Francisco', state: 'CA', url: 'https://sfpl.org/events', type: 'html' },
+  { name: 'San Diego Public Library', city: 'San Diego', state: 'CA', url: 'https://www.sandiego.gov/public-library/news-events', type: 'html' },
+  { name: 'San Jose Public Library', city: 'San Jose', state: 'CA', url: 'https://www.sjpl.org/events', type: 'html' },
+  { name: 'Phoenix Public Library', city: 'Phoenix', state: 'AZ', url: 'https://www.phoenixpubliclibrary.org/events', type: 'html' },
+  { name: 'Denver Public Library', city: 'Denver', state: 'CO', url: 'https://www.denverlibrary.org/events', type: 'html' },
+  { name: 'Seattle Public Library', city: 'Seattle', state: 'WA', url: 'https://www.spl.org/programs-and-services/learning', type: 'html' },
+  { name: 'Portland Public Library', city: 'Portland', state: 'OR', url: 'https://multcolib.org/events', type: 'html' },
+  { name: 'Las Vegas-Clark County Library', city: 'Las Vegas', state: 'NV', url: 'https://lvccld.org/events/', type: 'html' },
 ];
 
 // Map library event categories to our categories
@@ -177,7 +185,7 @@ async function scrapeHtml(config) {
             venueName: config.name,
             venueAddress: null,
             city: config.city,
-            state: 'FL',
+            state: config.state || 'FL',
             zip: null,
             country: 'US',
             lat: null,

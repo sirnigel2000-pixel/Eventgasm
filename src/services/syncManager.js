@@ -65,6 +65,8 @@ async function runFullSync() {
     seatgeek: 0,
     allevents: 0,
     bandsintown: 0,
+    library: 0,
+    parks: 0,
     errors: []
   };
 
@@ -113,6 +115,38 @@ async function runFullSync() {
       }
     }
 
+    // Library Events (FREE community events - nationwide)
+    if (libraryEvents) {
+      console.log('[SyncManager] Syncing Library Events (nationwide)...');
+      try {
+        const events = await libraryEvents.syncAll();
+        stats.library = events.length;
+        for (const event of events) {
+          try { await Event.upsert(event); } catch (e) { /* skip dupes */ }
+        }
+        await logSync('library', 'US', stats.library, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Library Events: ${err.message}`);
+        await logSync('library', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // Parks & Recreation Events (FREE community events - nationwide)
+    if (parksAndRec) {
+      console.log('[SyncManager] Syncing Parks & Rec Events (nationwide)...');
+      try {
+        const events = await parksAndRec.syncAll();
+        stats.parks = events.length;
+        for (const event of events) {
+          try { await Event.upsert(event); } catch (e) { /* skip dupes */ }
+        }
+        await logSync('parks', 'US', stats.parks, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Parks & Rec: ${err.message}`);
+        await logSync('parks', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
   } catch (error) {
     console.error('[SyncManager] Fatal sync error:', error);
     stats.errors.push(`Fatal: ${error.message}`);
@@ -127,13 +161,15 @@ async function runFullSync() {
   }
 
   const duration = Math.round((Date.now() - startTime) / 1000);
-  const total = stats.ticketmaster + stats.seatgeek + stats.allevents + stats.bandsintown;
+  const total = stats.ticketmaster + stats.seatgeek + stats.allevents + stats.bandsintown + stats.library + stats.parks;
   
   console.log(`[SyncManager] Sync complete in ${duration}s`);
   console.log(`  - Ticketmaster: ${stats.ticketmaster}`);
   console.log(`  - SeatGeek: ${stats.seatgeek}`);
   console.log(`  - AllEvents: ${stats.allevents}`);
   console.log(`  - Bandsintown: ${stats.bandsintown}`);
+  console.log(`  - Library Events: ${stats.library}`);
+  console.log(`  - Parks & Rec: ${stats.parks}`);
   console.log(`  - Total: ${total}`);
   if (stats.errors.length) {
     console.log(`  - Errors: ${stats.errors.join('; ')}`);

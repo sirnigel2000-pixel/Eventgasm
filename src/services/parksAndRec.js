@@ -7,44 +7,50 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-// Florida city Parks & Recreation departments
+// Major US city Parks & Recreation departments (Top 30 metros + Florida)
 const PARKS_DEPTS = [
-  {
-    name: 'Miami Parks & Recreation',
-    city: 'Miami',
-    url: 'https://www.miamigov.com/Parks-Recreation/Special-Events',
-    apiUrl: null,
-  },
-  {
-    name: 'Orlando Parks & Recreation',
-    city: 'Orlando',
-    url: 'https://www.orlando.gov/Parks-the-Environment/Community-Programs-Events',
-    apiUrl: null,
-  },
-  {
-    name: 'Tampa Parks & Recreation',
-    city: 'Tampa',
-    url: 'https://www.tampa.gov/parks-and-recreation/programs/special-events',
-    apiUrl: null,
-  },
-  {
-    name: 'Jacksonville Parks',
-    city: 'Jacksonville',
-    url: 'https://www.coj.net/departments/parks-and-recreation/recreation-and-community-programming/special-events',
-    apiUrl: null,
-  },
-  {
-    name: 'Fort Lauderdale Parks',
-    city: 'Fort Lauderdale',
-    url: 'https://www.fortlauderdale.gov/departments/parks-recreation/special-events',
-    apiUrl: null,
-  },
-  {
-    name: 'St. Petersburg Parks',
-    city: 'St Petersburg',
-    url: 'https://www.stpete.org/recreation_events/index.php',
-    apiUrl: null,
-  },
+  // FLORIDA
+  { name: 'Miami Parks & Recreation', city: 'Miami', state: 'FL', url: 'https://www.miamigov.com/Parks-Recreation/Special-Events' },
+  { name: 'Orlando Parks & Recreation', city: 'Orlando', state: 'FL', url: 'https://www.orlando.gov/Parks-the-Environment/Community-Programs-Events' },
+  { name: 'Tampa Parks & Recreation', city: 'Tampa', state: 'FL', url: 'https://www.tampa.gov/parks-and-recreation/programs/special-events' },
+  { name: 'Jacksonville Parks', city: 'Jacksonville', state: 'FL', url: 'https://www.coj.net/departments/parks-and-recreation/recreation-and-community-programming/special-events' },
+  { name: 'Fort Lauderdale Parks', city: 'Fort Lauderdale', state: 'FL', url: 'https://www.fortlauderdale.gov/departments/parks-recreation/special-events' },
+  { name: 'St. Petersburg Parks', city: 'St Petersburg', state: 'FL', url: 'https://www.stpete.org/recreation_events/index.php' },
+  
+  // NORTHEAST
+  { name: 'NYC Parks', city: 'New York', state: 'NY', url: 'https://www.nycgovparks.org/events' },
+  { name: 'Philadelphia Parks & Recreation', city: 'Philadelphia', state: 'PA', url: 'https://www.phila.gov/departments/philadelphia-parks-recreation/events/' },
+  { name: 'Boston Parks & Recreation', city: 'Boston', state: 'MA', url: 'https://www.boston.gov/departments/parks-and-recreation' },
+  { name: 'DC Parks & Recreation', city: 'Washington', state: 'DC', url: 'https://dpr.dc.gov/page/special-events' },
+  
+  // MIDWEST
+  { name: 'Chicago Park District', city: 'Chicago', state: 'IL', url: 'https://www.chicagoparkdistrict.com/events' },
+  { name: 'Detroit Parks & Recreation', city: 'Detroit', state: 'MI', url: 'https://detroitmi.gov/departments/parks-recreation' },
+  { name: 'Cleveland Metroparks', city: 'Cleveland', state: 'OH', url: 'https://www.clevelandmetroparks.com/events' },
+  { name: 'Columbus Recreation & Parks', city: 'Columbus', state: 'OH', url: 'https://www.columbus.gov/recreationandparks/events/' },
+  { name: 'Indy Parks', city: 'Indianapolis', state: 'IN', url: 'https://www.indy.gov/agency/indy-parks-and-recreation' },
+  { name: 'Minneapolis Park & Recreation', city: 'Minneapolis', state: 'MN', url: 'https://www.minneapolisparks.org/events/' },
+  
+  // SOUTH
+  { name: 'Houston Parks & Recreation', city: 'Houston', state: 'TX', url: 'https://www.houstontx.gov/parks/parksevents.html' },
+  { name: 'Dallas Parks & Recreation', city: 'Dallas', state: 'TX', url: 'https://www.dallasparks.org/Calendar.aspx' },
+  { name: 'Austin Parks & Recreation', city: 'Austin', state: 'TX', url: 'https://www.austintexas.gov/department/parks-and-recreation' },
+  { name: 'San Antonio Parks & Recreation', city: 'San Antonio', state: 'TX', url: 'https://www.sanantonio.gov/ParksAndRec/News-Events' },
+  { name: 'Atlanta Parks & Recreation', city: 'Atlanta', state: 'GA', url: 'https://www.atlantaga.gov/government/departments/parks-recreation' },
+  { name: 'Charlotte Parks & Recreation', city: 'Charlotte', state: 'NC', url: 'https://charlottenc.gov/parks/Pages/default.aspx' },
+  { name: 'Nashville Parks', city: 'Nashville', state: 'TN', url: 'https://www.nashville.gov/Parks-and-Recreation/Events.aspx' },
+  { name: 'New Orleans Parks', city: 'New Orleans', state: 'LA', url: 'https://nola.gov/parks-and-parkways/' },
+  
+  // WEST
+  { name: 'LA Recreation & Parks', city: 'Los Angeles', state: 'CA', url: 'https://www.laparks.org/events' },
+  { name: 'SF Recreation & Parks', city: 'San Francisco', state: 'CA', url: 'https://sfrecpark.org/Calendar.aspx' },
+  { name: 'San Diego Parks & Recreation', city: 'San Diego', state: 'CA', url: 'https://www.sandiego.gov/park-and-recreation/general-info/news' },
+  { name: 'San Jose Parks', city: 'San Jose', state: 'CA', url: 'https://www.sanjoseca.gov/your-government/departments-offices/prns/recreation-community-services/events' },
+  { name: 'Phoenix Parks & Recreation', city: 'Phoenix', state: 'AZ', url: 'https://www.phoenix.gov/parks/events' },
+  { name: 'Denver Parks & Recreation', city: 'Denver', state: 'CO', url: 'https://www.denvergov.org/Government/Agencies-Departments-Offices/Parks-Recreation' },
+  { name: 'Seattle Parks & Recreation', city: 'Seattle', state: 'WA', url: 'https://www.seattle.gov/parks/events-and-activities' },
+  { name: 'Portland Parks & Recreation', city: 'Portland', state: 'OR', url: 'https://www.portland.gov/parks/events' },
+  { name: 'Las Vegas Parks', city: 'Las Vegas', state: 'NV', url: 'https://www.lasvegasnevada.gov/Government/Departments/Parks-Recreation' },
 ];
 
 // Category mapping
@@ -154,7 +160,7 @@ async function scrapeDept(config) {
           venueName: location || config.name,
           venueAddress: location || null,
           city: config.city,
-          state: 'FL',
+          state: config.state || 'FL',
           zip: null,
           country: 'US',
           lat: null,
