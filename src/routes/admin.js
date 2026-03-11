@@ -80,6 +80,30 @@ router.post('/sync/quick', authMiddleware, async (req, res) => {
   res.json({ message: 'Quick sync started', status: 'running' });
 });
 
+// POST /admin/fix-free-flags - Fix incorrectly marked free events
+router.post('/fix-free-flags', authMiddleware, async (req, res) => {
+  try {
+    // Reset is_free to false for Ticketmaster events that have null prices
+    // (They should only be free if explicitly marked)
+    const result = await pool.query(`
+      UPDATE events 
+      SET is_free = false 
+      WHERE source = 'ticketmaster' 
+        AND is_free = true 
+        AND price_min IS NULL 
+        AND price_max IS NULL
+      RETURNING id
+    `);
+    
+    res.json({ 
+      message: 'Fixed free flags',
+      eventsUpdated: result.rowCount
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /admin/sync/florida - Trigger Florida-focused sync (local events)
 router.post('/sync/florida', authMiddleware, async (req, res) => {
   const status = syncManager.getStatus();
