@@ -86,7 +86,12 @@ function parseEvent(raw) {
     ticket_url: raw.url,
     price_min: priceRanges.min || null,
     price_max: priceRanges.max || null,
-    is_free: false,
+    // Only mark as free if Ticketmaster explicitly says it's free
+    // Check for: priceRange type="FREE", or price.min = 0, or no ticket required
+    is_free: priceRanges.type === 'FREE' || 
+             (priceRanges.min === 0 && priceRanges.max === 0) ||
+             raw.accessibility?.ticketLimit === 0 ||
+             false,
     age_restriction: raw.ageRestrictions?.legalAgeEnforced ? '21+' : null,
     
     raw_data: raw

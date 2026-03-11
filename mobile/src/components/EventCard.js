@@ -12,7 +12,9 @@ import { formatEventDate, formatDateRange, formatDistance } from '../utils/forma
 const { width } = Dimensions.get('window');
 
 export default function EventCard({ event, onPress }) {
-  const isFree = event.isFree || event.price?.isFree;
+  // Only show FREE badge if explicitly marked free (not just null price)
+  const isFree = event.isFree === true;
+  const hasPrice = event.price?.min != null || event.price?.max != null;
   const hasMultipleShowtimes = event.totalShowtimes && event.totalShowtimes > 1;
 
   return (
