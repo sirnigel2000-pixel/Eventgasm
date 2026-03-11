@@ -34,6 +34,19 @@
     /* Header */
     header {
       padding: 20px 0;
+      position: sticky;
+      top: 0;
+      background: rgba(102, 126, 234, 0.95);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+    }
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
     }
     
     .logo {
@@ -42,112 +55,149 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      cursor: pointer;
     }
     
     .logo-icon {
       font-size: 32px;
     }
     
-    /* Hero */
-    .hero {
-      padding: 60px 0 80px;
-      text-align: center;
+    /* Search */
+    .search-container {
+      flex: 1;
+      max-width: 500px;
+      min-width: 250px;
     }
     
-    .hero h1 {
-      font-size: clamp(2.5rem, 6vw, 4rem);
-      font-weight: 800;
-      margin-bottom: 20px;
-      line-height: 1.1;
-    }
-    
-    .hero p {
-      font-size: 1.25rem;
-      opacity: 0.9;
-      max-width: 600px;
-      margin: 0 auto 40px;
-      line-height: 1.6;
-    }
-    
-    .cta-buttons {
+    .search-box {
       display: flex;
-      gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-    
-    .btn {
-      padding: 16px 32px;
+      background: rgba(255,255,255,0.2);
       border-radius: 12px;
-      font-size: 1.1rem;
-      font-weight: 600;
-      text-decoration: none;
-      transition: transform 0.2s, box-shadow 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+      overflow: hidden;
+      border: 2px solid transparent;
+      transition: border-color 0.2s;
     }
     
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    .search-box:focus-within {
+      border-color: rgba(255,255,255,0.5);
     }
     
-    .btn-primary {
+    .search-box input {
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      background: transparent;
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+    }
+    
+    .search-box input::placeholder {
+      color: rgba(255,255,255,0.7);
+    }
+    
+    .search-box button {
+      padding: 12px 20px;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+    
+    .search-box button:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    /* City Picker */
+    .city-picker {
+      position: relative;
+    }
+    
+    .city-picker select {
+      padding: 12px 40px 12px 16px;
+      border-radius: 12px;
+      border: none;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      appearance: none;
+      outline: none;
+    }
+    
+    .city-picker::after {
+      content: '📍';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    
+    .city-picker select option {
+      background: #667eea;
+      color: #fff;
+    }
+    
+    /* Category Tabs */
+    .categories {
+      padding: 20px 0;
+      overflow-x: auto;
+    }
+    
+    .category-tabs {
+      display: flex;
+      gap: 10px;
+      padding-bottom: 10px;
+    }
+    
+    .category-tab {
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 25px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    
+    .category-tab:hover {
+      background: rgba(255,255,255,0.25);
+    }
+    
+    .category-tab.active {
       background: #fff;
       color: #667eea;
     }
     
-    .btn-secondary {
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-      border: 2px solid rgba(255,255,255,0.3);
+    /* Main Content */
+    main {
+      padding: 20px 0 60px;
     }
     
-    /* Features */
-    .features {
-      padding: 60px 0;
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(10px);
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
     }
     
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 30px;
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 700;
     }
     
-    .feature {
-      text-align: center;
-      padding: 30px;
-    }
-    
-    .feature-icon {
-      font-size: 3rem;
-      margin-bottom: 16px;
-    }
-    
-    .feature h3 {
-      font-size: 1.25rem;
-      margin-bottom: 10px;
-    }
-    
-    .feature p {
+    .results-count {
       opacity: 0.8;
-      line-height: 1.5;
+      font-size: 0.9rem;
     }
     
-    /* Live Events */
-    .live-events {
-      padding: 60px 0;
-    }
-    
-    .live-events h2 {
-      text-align: center;
-      font-size: 2rem;
-      margin-bottom: 40px;
-    }
-    
+    /* Events Grid */
     .events-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -158,16 +208,20 @@
       background: rgba(255,255,255,0.15);
       border-radius: 16px;
       overflow: hidden;
-      transition: transform 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
     }
     
     .event-card:hover {
       transform: translateY(-4px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     }
     
     .event-image {
       width: 100%;
-      height: 160px;
+      height: 180px;
       object-fit: cover;
       background: rgba(0,0,0,0.2);
     }
@@ -176,13 +230,42 @@
       padding: 16px;
     }
     
+    .event-badges {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .badge-free {
+      background: #10b981;
+      color: #fff;
+    }
+    
+    .badge-local {
+      background: #f59e0b;
+      color: #fff;
+    }
+    
+    .badge-category {
+      background: rgba(255,255,255,0.2);
+    }
+    
     .event-title {
       font-weight: 600;
       font-size: 1.1rem;
       margin-bottom: 8px;
-      white-space: nowrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      text-overflow: ellipsis;
     }
     
     .event-meta {
@@ -193,6 +276,194 @@
     .event-meta span {
       display: block;
       margin-bottom: 4px;
+    }
+    
+    .event-price {
+      margin-top: 12px;
+      font-weight: 600;
+      color: #4ade80;
+    }
+    
+    /* Load More */
+    .load-more {
+      text-align: center;
+      margin-top: 40px;
+    }
+    
+    .load-more button {
+      padding: 16px 40px;
+      background: rgba(255,255,255,0.2);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .load-more button:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    .load-more button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    /* Event Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 20px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      transform: scale(0.9);
+      transition: transform 0.3s;
+    }
+    
+    .modal-overlay.active .modal {
+      transform: scale(1);
+    }
+    
+    .modal-image {
+      width: 100%;
+      height: 250px;
+      object-fit: cover;
+    }
+    
+    .modal-content {
+      padding: 24px;
+    }
+    
+    .modal-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.5);
+      border: none;
+      color: #fff;
+      font-size: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    
+    .modal-details {
+      margin-bottom: 20px;
+    }
+    
+    .modal-details p {
+      margin-bottom: 8px;
+      opacity: 0.9;
+    }
+    
+    .modal-details strong {
+      opacity: 1;
+    }
+    
+    .modal-description {
+      margin-bottom: 24px;
+      line-height: 1.6;
+      opacity: 0.9;
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .btn {
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .btn-primary {
+      background: #fff;
+      color: #667eea;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    }
+    
+    .btn-secondary {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+    
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* No Results */
+    .no-results {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    
+    .no-results-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
     }
     
     /* Footer */
@@ -207,27 +478,35 @@
       color: #fff;
     }
     
-    .badge {
-      display: inline-block;
-      background: rgba(255,255,255,0.2);
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      margin-bottom: 20px;
-    }
-    
-    @media (max-width: 640px) {
-      .hero {
-        padding: 40px 0 60px;
-      }
-      .cta-buttons {
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header-content {
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
       }
-      .btn {
-        width: 100%;
-        max-width: 300px;
+      
+      .logo {
         justify-content: center;
+      }
+      
+      .search-container {
+        max-width: none;
+      }
+      
+      .city-picker {
+        width: 100%;
+      }
+      
+      .city-picker select {
+        width: 100%;
+      }
+      
+      .events-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .modal-actions {
+        flex-direction: column;
       }
     }
   </style>
@@ -235,105 +514,339 @@
 <body>
   <header>
     <div class="container">
-      <div class="logo">
-        <span class="logo-icon">🎉</span>
-        <span>Eventgasm</span>
+      <div class="header-content">
+        <div class="logo" onclick="resetFilters()">
+          <span class="logo-icon">🎉</span>
+          <span>Eventgasm</span>
+        </div>
+        
+        <div class="search-container">
+          <div class="search-box">
+            <input type="text" id="search-input" placeholder="Search events..." onkeypress="if(event.key==='Enter')searchEvents()">
+            <button onclick="searchEvents()">🔍</button>
+          </div>
+        </div>
+        
+        <div class="city-picker">
+          <select id="city-select" onchange="filterByCity()">
+            <option value="">All Cities</option>
+            <option value="FL">Florida</option>
+            <option value="NY">New York</option>
+            <option value="CA">California</option>
+            <option value="TX">Texas</option>
+            <option value="IL">Illinois</option>
+            <option value="GA">Georgia</option>
+            <option value="PA">Pennsylvania</option>
+            <option value="OH">Ohio</option>
+            <option value="NC">North Carolina</option>
+            <option value="MI">Michigan</option>
+            <option value="WA">Washington</option>
+            <option value="AZ">Arizona</option>
+            <option value="MA">Massachusetts</option>
+            <option value="TN">Tennessee</option>
+            <option value="CO">Colorado</option>
+            <option value="OR">Oregon</option>
+            <option value="NV">Nevada</option>
+            <option value="IN">Indiana</option>
+            <option value="MO">Missouri</option>
+            <option value="LA">Louisiana</option>
+          </select>
+        </div>
       </div>
     </div>
   </header>
   
-  <section class="hero">
-    <div class="container">
-      <div class="badge">✨ Now with nationwide coverage</div>
-      <h1>Find Amazing Events<br>Near You</h1>
-      <p>Discover concerts, festivals, free community events, and more. From major shows to hidden local gems — we've got it all.</p>
-      <div class="cta-buttons">
-        <a href="#events" class="btn btn-primary">
-          🔍 Browse Events
-        </a>
-        <a href="#" class="btn btn-secondary" id="app-store-btn">
-          📱 App Coming Soon
-        </a>
+  <div class="container">
+    <nav class="categories">
+      <div class="category-tabs">
+        <button class="category-tab active" onclick="filterByCategory('')" data-category="">🔥 All</button>
+        <button class="category-tab" onclick="filterByCategory('free')" data-category="free">🆓 Free</button>
+        <button class="category-tab" onclick="filterByCategory('music')" data-category="music">🎵 Music</button>
+        <button class="category-tab" onclick="filterByCategory('sports')" data-category="sports">⚽ Sports</button>
+        <button class="category-tab" onclick="filterByCategory('comedy')" data-category="comedy">😂 Comedy</button>
+        <button class="category-tab" onclick="filterByCategory('arts')" data-category="arts">🎭 Arts</button>
+        <button class="category-tab" onclick="filterByCategory('food')" data-category="food">🍕 Food</button>
+        <button class="category-tab" onclick="filterByCategory('family')" data-category="family">👨‍👩‍👧 Family</button>
+        <button class="category-tab" onclick="filterByCategory('nightlife')" data-category="nightlife">🌙 Nightlife</button>
       </div>
-    </div>
-  </section>
+    </nav>
+  </div>
   
-  <section class="features">
+  <main>
     <div class="container">
-      <div class="features-grid">
-        <div class="feature">
-          <div class="feature-icon">🎵</div>
-          <h3>Concerts & Shows</h3>
-          <p>From stadium tours to intimate venues, find live music happening near you.</p>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🆓</div>
-          <h3>Free Events</h3>
-          <p>Library workshops, park concerts, community festivals — all free!</p>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">📍</div>
-          <h3>Nationwide</h3>
-          <p>Events in every major city across the US. Find what's happening anywhere.</p>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🎭</div>
-          <h3>All Categories</h3>
-          <p>Music, sports, comedy, food, arts, family events, and more.</p>
+      <div class="section-header">
+        <h2 class="section-title" id="section-title">🔥 Happening Soon</h2>
+        <span class="results-count" id="results-count"></span>
+      </div>
+      
+      <div id="events-container">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Loading events...</p>
         </div>
       </div>
+      
+      <div class="load-more" id="load-more" style="display:none;">
+        <button onclick="loadMore()">Load More Events</button>
+      </div>
     </div>
-  </section>
+  </main>
   
-  <section class="live-events" id="events">
-    <div class="container">
-      <h2>🔥 Happening Soon</h2>
-      <div class="events-grid" id="events-container">
-        <div class="event-card">
-          <div class="event-image" style="display:flex;align-items:center;justify-content:center;">Loading...</div>
-        </div>
+  <!-- Event Detail Modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <img class="modal-image" id="modal-image" src="" alt="">
+      <div class="modal-content">
+        <h2 class="modal-title" id="modal-title"></h2>
+        <div class="modal-details" id="modal-details"></div>
+        <div class="modal-description" id="modal-description"></div>
+        <div class="modal-actions" id="modal-actions"></div>
       </div>
     </div>
-  </section>
+  </div>
   
   <footer>
     <div class="container">
       <p>© 2026 Eventgasm. Made with 🎉 in Florida.</p>
       <p style="margin-top: 10px;">
-        <a href="/api/events">API</a>
+        <a href="/api/events">API</a> · 
+        <span>📱 App Coming Soon</span>
       </p>
     </div>
   </footer>
   
   <script>
-    // Fetch and display live events
-    async function loadEvents() {
-      try {
-        const res = await fetch('/api/events?limit=6');
-        const data = await res.json();
-        
-        if (data.success && data.events.length > 0) {
-          const container = document.getElementById('events-container');
-          container.innerHTML = data.events.map(event => `
-            <a href="${event.ticketUrl || event.shareUrl}" target="_blank" class="event-card" style="text-decoration:none;color:inherit;">
-              <img class="event-image" src="${event.image || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎉</text></svg>'}" alt="${event.title}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎉</text></svg>'">
-              <div class="event-info">
-                <div class="event-title">${event.title}</div>
-                <div class="event-meta">
-                  <span>📍 ${event.venue?.city || 'TBA'}${event.venue?.state ? ', ' + event.venue.state : ''}</span>
-                  <span>📅 ${new Date(event.timing?.start).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                  ${event.isFree ? '<span style="color:#4ade80;">🆓 FREE</span>' : ''}
-                </div>
-              </div>
-            </a>
-          `).join('');
-        }
-      } catch (err) {
-        console.error('Failed to load events:', err);
+    // State
+    let currentPage = 0;
+    let currentFilters = {
+      search: '',
+      state: '',
+      category: '',
+      free: false
+    };
+    let allEvents = [];
+    let totalEvents = 0;
+    const PAGE_SIZE = 12;
+    
+    // Load initial events
+    loadEvents();
+    
+    // Search events
+    function searchEvents() {
+      currentFilters.search = document.getElementById('search-input').value;
+      currentPage = 0;
+      allEvents = [];
+      loadEvents();
+      updateTitle();
+    }
+    
+    // Filter by city/state
+    function filterByCity() {
+      currentFilters.state = document.getElementById('city-select').value;
+      currentPage = 0;
+      allEvents = [];
+      loadEvents();
+      updateTitle();
+    }
+    
+    // Filter by category
+    function filterByCategory(category) {
+      // Update active tab
+      document.querySelectorAll('.category-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.category === category);
+      });
+      
+      if (category === 'free') {
+        currentFilters.free = true;
+        currentFilters.category = '';
+      } else {
+        currentFilters.free = false;
+        currentFilters.category = category;
+      }
+      
+      currentPage = 0;
+      allEvents = [];
+      loadEvents();
+      updateTitle();
+    }
+    
+    // Reset all filters
+    function resetFilters() {
+      currentFilters = { search: '', state: '', category: '', free: false };
+      document.getElementById('search-input').value = '';
+      document.getElementById('city-select').value = '';
+      document.querySelectorAll('.category-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.category === '');
+      });
+      currentPage = 0;
+      allEvents = [];
+      loadEvents();
+      updateTitle();
+    }
+    
+    // Update section title
+    function updateTitle() {
+      const title = document.getElementById('section-title');
+      if (currentFilters.search) {
+        title.textContent = `🔍 Results for "${currentFilters.search}"`;
+      } else if (currentFilters.free) {
+        title.textContent = '🆓 Free Events';
+      } else if (currentFilters.category) {
+        const icons = { music: '🎵', sports: '⚽', comedy: '😂', arts: '🎭', food: '🍕', family: '👨‍👩‍👧', nightlife: '🌙' };
+        title.textContent = `${icons[currentFilters.category] || '🎉'} ${currentFilters.category.charAt(0).toUpperCase() + currentFilters.category.slice(1)} Events`;
+      } else if (currentFilters.state) {
+        title.textContent = `📍 Events in ${currentFilters.state}`;
+      } else {
+        title.textContent = '🔥 Happening Soon';
       }
     }
     
-    loadEvents();
+    // Load events from API
+    async function loadEvents() {
+      const container = document.getElementById('events-container');
+      
+      if (currentPage === 0) {
+        container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading events...</p></div>';
+      }
+      
+      try {
+        const params = new URLSearchParams({
+          limit: PAGE_SIZE,
+          offset: currentPage * PAGE_SIZE
+        });
+        
+        if (currentFilters.search) params.set('search', currentFilters.search);
+        if (currentFilters.state) params.set('state', currentFilters.state);
+        if (currentFilters.category) params.set('category', currentFilters.category);
+        if (currentFilters.free) params.set('free', 'true');
+        
+        const res = await fetch(`/api/events?${params}`);
+        const data = await res.json();
+        
+        if (data.success) {
+          allEvents = currentPage === 0 ? data.events : [...allEvents, ...data.events];
+          totalEvents = data.pagination?.total || data.events.length;
+          renderEvents();
+        } else {
+          throw new Error('Failed to load events');
+        }
+      } catch (err) {
+        console.error('Failed to load events:', err);
+        container.innerHTML = '<div class="no-results"><div class="no-results-icon">😕</div><h3>Failed to load events</h3><p>Please try again later.</p></div>';
+      }
+    }
+    
+    // Render events
+    function renderEvents() {
+      const container = document.getElementById('events-container');
+      const loadMoreBtn = document.getElementById('load-more');
+      const resultsCount = document.getElementById('results-count');
+      
+      if (allEvents.length === 0) {
+        container.innerHTML = '<div class="no-results"><div class="no-results-icon">🔍</div><h3>No events found</h3><p>Try adjusting your search or filters.</p></div>';
+        loadMoreBtn.style.display = 'none';
+        resultsCount.textContent = '';
+        return;
+      }
+      
+      resultsCount.textContent = `${totalEvents} events found`;
+      
+      container.innerHTML = `
+        <div class="events-grid">
+          ${allEvents.map(event => `
+            <div class="event-card" onclick="showEventDetails(${JSON.stringify(event).replace(/"/g, '&quot;')})">
+              <img class="event-image" src="${event.image || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23667eea%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2260%22 text-anchor=%22middle%22 font-size=%2250%22>🎉</text></svg>'}" alt="${escapeHtml(event.title)}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23667eea%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2260%22 text-anchor=%22middle%22 font-size=%2250%22>🎉</text></svg>'">
+              <div class="event-info">
+                <div class="event-badges">
+                  ${event.isFree ? '<span class="badge badge-free">FREE</span>' : ''}
+                  ${event.source === 'allevents' || event.source === 'library' || event.source === 'parks' ? '<span class="badge badge-local">LOCAL</span>' : ''}
+                </div>
+                <div class="event-title">${escapeHtml(event.title)}</div>
+                <div class="event-meta">
+                  <span>📍 ${event.venue?.city || 'TBA'}${event.venue?.state ? ', ' + event.venue.state : ''}</span>
+                  <span>📅 ${formatDate(event.timing?.start)}</span>
+                </div>
+                ${!event.isFree && event.priceRange?.min ? `<div class="event-price">From $${event.priceRange.min}</div>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      
+      // Show/hide load more
+      loadMoreBtn.style.display = allEvents.length < totalEvents ? 'block' : 'none';
+    }
+    
+    // Load more events
+    function loadMore() {
+      currentPage++;
+      loadEvents();
+    }
+    
+    // Show event details modal
+    function showEventDetails(event) {
+      const modal = document.getElementById('modal-overlay');
+      document.getElementById('modal-image').src = event.image || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23667eea%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2260%22 text-anchor=%22middle%22 font-size=%2250%22>🎉</text></svg>';
+      document.getElementById('modal-title').textContent = event.title;
+      
+      document.getElementById('modal-details').innerHTML = `
+        <p><strong>📅 Date:</strong> ${formatDate(event.timing?.start, true)}</p>
+        <p><strong>📍 Location:</strong> ${event.venue?.name || 'TBA'}${event.venue?.city ? ', ' + event.venue.city : ''}${event.venue?.state ? ', ' + event.venue.state : ''}</p>
+        ${event.priceRange?.min ? `<p><strong>💰 Price:</strong> ${event.isFree ? 'FREE' : '$' + event.priceRange.min + (event.priceRange.max && event.priceRange.max !== event.priceRange.min ? ' - $' + event.priceRange.max : '')}</p>` : event.isFree ? '<p><strong>💰 Price:</strong> FREE</p>' : ''}
+        ${event.categories?.length ? `<p><strong>🏷️ Category:</strong> ${event.categories.join(', ')}</p>` : ''}
+      `;
+      
+      document.getElementById('modal-description').textContent = event.description || 'No description available.';
+      
+      let actionsHtml = '';
+      if (event.ticketUrl) {
+        actionsHtml += `<a href="${event.ticketUrl}" target="_blank" class="btn btn-primary">🎟️ Get Tickets</a>`;
+      }
+      if (event.shareUrl && event.shareUrl !== event.ticketUrl) {
+        actionsHtml += `<a href="${event.shareUrl}" target="_blank" class="btn btn-secondary">ℹ️ More Info</a>`;
+      }
+      if (!actionsHtml) {
+        actionsHtml = '<span style="opacity:0.7">No ticket link available</span>';
+      }
+      document.getElementById('modal-actions').innerHTML = actionsHtml;
+      
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    
+    // Close modal
+    function closeModal(e) {
+      if (e.target.id === 'modal-overlay') {
+        document.getElementById('modal-overlay').classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+    
+    // Close modal on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.getElementById('modal-overlay').classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    });
+    
+    // Helper: Format date
+    function formatDate(dateStr, full = false) {
+      if (!dateStr) return 'TBA';
+      const date = new Date(dateStr);
+      if (full) {
+        return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+      }
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+    
+    // Helper: Escape HTML
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
   </script>
 </body>
 </html>
