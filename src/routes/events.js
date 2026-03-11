@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Event = require('../models/Event');
+const stubhub = require('../services/stubhub');
+const vividseats = require('../services/vividseats');
 
 // Helper: Group events by title + venue to consolidate multiple showtimes
 function groupEventsByShowtime(events) {
@@ -283,8 +285,44 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Generate ticket links for an event (primary + resale options)
+function getTicketLinks(event) {
+  const links = [];
+  
+  // Primary ticket link (from original source)
+  if (event.ticket_url) {
+    const sourceNames = {
+      'ticketmaster': 'Ticketmaster',
+      'seatgeek': 'SeatGeek',
+      'eventbrite': 'Eventbrite',
+      'allevents': 'AllEvents',
+      'bandsintown': 'Bandsintown'
+    };
+    
+    links.push({
+      source: event.source,
+      name: sourceNames[event.source] || event.source,
+      type: 'primary',
+      url: event.ticket_url,
+      icon: '🎟️'
+    });
+  }
+  
+  // Add resale options for paid events (not for free/community events)
+  if (!event.is_free && event.source !== 'library' && event.source !== 'parks') {
+    // StubHub
+    links.push(stubhub.getTicketLink(event));
+    // VividSeats
+    links.push(vividseats.getTicketLink(event));
+  }
+  
+  return links;
+}
+
 // Format event for API response
 function formatEvent(event) {
+  const ticketLinks = getTicketLinks(event);
+  
   return {
     id: event.id,
     title: event.title,
@@ -311,6 +349,7 @@ function formatEvent(event) {
     },
     image: event.image_url,
     ticketUrl: event.ticket_url,
+    ticketLinks: ticketLinks,  // NEW: Array of all ticket options
     price: {
       min: event.price_min ? parseFloat(event.price_min) : null,
       max: event.price_max ? parseFloat(event.price_max) : null,

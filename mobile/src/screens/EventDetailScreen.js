@@ -167,27 +167,55 @@ export default function EventDetailScreen({ route, navigation }) {
       </ScrollView>
 
       <View style={styles.footer}>
-        <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>
-            {hasMultipleShowtimes && !selectedShowtime ? 'Select a date above' : 'Tickets'}
-          </Text>
-          <Text style={styles.price}>
-            {event.isFree ? 'FREE' : 'Available'}
-          </Text>
-        </View>
-        
-        <TouchableOpacity 
-          style={[
-            styles.buyButton,
-            hasMultipleShowtimes && !selectedShowtime && styles.buyButtonDisabled
-          ]}
-          onPress={handleBuyTickets}
-          disabled={hasMultipleShowtimes && !selectedShowtime}
-        >
-          <Text style={styles.buyButtonText}>
-            {hasMultipleShowtimes && !selectedShowtime ? 'Select Date' : 'Get Tickets'}
-          </Text>
-        </TouchableOpacity>
+        {hasMultipleShowtimes && !selectedShowtime ? (
+          <View style={styles.selectDatePrompt}>
+            <Text style={styles.selectDateText}>👆 Select a date above to see ticket options</Text>
+          </View>
+        ) : event.isFree ? (
+          <View style={styles.freeEventFooter}>
+            <Text style={styles.freeText}>🎉 FREE EVENT</Text>
+            {event.ticketUrl && (
+              <TouchableOpacity 
+                style={styles.rsvpButton}
+                onPress={() => Linking.openURL(event.ticketUrl)}
+              >
+                <Text style={styles.rsvpButtonText}>RSVP / More Info</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <View style={styles.ticketLinksContainer}>
+            <Text style={styles.ticketLinksTitle}>Get Tickets</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.ticketLinksScroll}>
+              {(event.ticketLinks || []).map((link, index) => (
+                <TouchableOpacity 
+                  key={`${link.source}-${index}`}
+                  style={[
+                    styles.ticketLinkButton,
+                    link.type === 'resale' && styles.ticketLinkButtonResale
+                  ]}
+                  onPress={() => Linking.openURL(link.url)}
+                >
+                  <Text style={styles.ticketLinkIcon}>{link.icon}</Text>
+                  <Text style={styles.ticketLinkName}>{link.name}</Text>
+                  {link.type === 'resale' && (
+                    <Text style={styles.ticketLinkNote}>Resale</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+              {/* Fallback if no ticketLinks array */}
+              {(!event.ticketLinks || event.ticketLinks.length === 0) && event.ticketUrl && (
+                <TouchableOpacity 
+                  style={styles.ticketLinkButton}
+                  onPress={handleBuyTickets}
+                >
+                  <Text style={styles.ticketLinkIcon}>🎟️</Text>
+                  <Text style={styles.ticketLinkName}>Buy Tickets</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -375,9 +403,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     paddingBottom: 36,
@@ -415,6 +440,75 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  // New ticket links styles
+  selectDatePrompt: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  selectDateText: {
+    fontSize: 15,
+    color: '#888',
+  },
+  freeEventFooter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  freeText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#22c55e',
+  },
+  rsvpButton: {
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  rsvpButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  ticketLinksContainer: {
+    flex: 1,
+  },
+  ticketLinksTitle: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 8,
+  },
+  ticketLinksScroll: {
+    flexDirection: 'row',
+  },
+  ticketLinkButton: {
+    backgroundColor: '#667eea',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginRight: 10,
+  },
+  ticketLinkButtonResale: {
+    backgroundColor: '#8b5cf6',
+  },
+  ticketLinkIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  ticketLinkName: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  ticketLinkNote: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    marginLeft: 6,
   },
   showtimesSection: {
     marginBottom: 20,

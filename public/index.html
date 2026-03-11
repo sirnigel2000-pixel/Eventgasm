@@ -446,6 +446,41 @@
       opacity: 0.7;
     }
     
+    .btn-resale {
+      background: #8b5cf6;
+      color: #fff;
+    }
+    
+    .btn-resale:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(139,92,246,0.3);
+    }
+    
+    .btn-resale small {
+      opacity: 0.7;
+      font-size: 0.8em;
+    }
+    
+    .ticket-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    
+    .ticket-links .btn {
+      flex: 1;
+      min-width: 120px;
+      justify-content: center;
+    }
+    
+    .free-badge-large {
+      font-size: 24px;
+      font-weight: 700;
+      color: #22c55e;
+      margin-right: 16px;
+    }
+    
     .showtimes-section {
       margin-bottom: 16px;
     }
@@ -960,12 +995,26 @@
       let actionsHtml = '';
       
       if (hasMultipleShowtimes) {
-        actionsHtml = `<a href="#" id="ticket-btn" class="btn btn-primary btn-disabled" onclick="return false;">📅 Select a date first</a>`;
+        actionsHtml = `<div id="ticket-links-container"><a href="#" id="ticket-btn" class="btn btn-primary btn-disabled" onclick="return false;">📅 Select a date first</a></div>`;
+      } else if (event.isFree) {
+        actionsHtml = `<span class="free-badge-large">🎉 FREE EVENT</span>`;
+        if (event.ticketUrl) {
+          actionsHtml += `<a href="${event.ticketUrl}" target="_blank" class="btn btn-secondary">RSVP / More Info</a>`;
+        }
+      } else if (event.ticketLinks && event.ticketLinks.length > 0) {
+        // Show all ticket options
+        actionsHtml = '<div class="ticket-links">';
+        event.ticketLinks.forEach(link => {
+          const btnClass = link.type === 'resale' ? 'btn-resale' : 'btn-primary';
+          const label = link.type === 'resale' ? `${link.icon} ${link.name} <small>(resale)</small>` : `${link.icon} ${link.name}`;
+          actionsHtml += `<a href="${link.url}" target="_blank" class="btn ${btnClass}">${label}</a>`;
+        });
+        actionsHtml += '</div>';
       } else if (event.ticketUrl) {
         actionsHtml += `<a href="${event.ticketUrl}" target="_blank" class="btn btn-primary">🎟️ Get Tickets</a>`;
       }
       
-      if (event.shareUrl && event.shareUrl !== event.ticketUrl) {
+      if (event.shareUrl && event.shareUrl !== event.ticketUrl && !event.isFree) {
         actionsHtml += `<a href="${event.shareUrl}" target="_blank" class="btn btn-secondary">ℹ️ More Info</a>`;
       }
       if (!actionsHtml) {
