@@ -658,7 +658,7 @@
     };
     let allEvents = [];
     let totalEvents = 0;
-    const PAGE_SIZE = 12;
+    const PAGE_SIZE = 24;
     
     // Load initial events
     loadEvents();
@@ -679,6 +679,9 @@
       if (value === 'geolocate') {
         // Use browser geolocation
         if (navigator.geolocation) {
+          // Show loading state
+          document.getElementById('section-title').textContent = '📍 Finding your location...';
+          
           navigator.geolocation.getCurrentPosition(
             (position) => {
               currentFilters.lat = position.coords.latitude;
@@ -691,12 +694,19 @@
               updateTitle();
             },
             (error) => {
-              alert('Unable to get your location. Please select a city instead.');
+              console.error('Geolocation error:', error);
+              let msg = 'Unable to get your location. ';
+              if (error.code === 1) msg += 'Please allow location access in your browser settings.';
+              else if (error.code === 2) msg += 'Location unavailable. Try selecting a city instead.';
+              else if (error.code === 3) msg += 'Location request timed out. Try again.';
+              alert(msg);
               document.getElementById('city-select').value = '';
-            }
+              document.getElementById('section-title').textContent = '🔥 Happening Soon';
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
           );
         } else {
-          alert('Geolocation is not supported by your browser.');
+          alert('Geolocation is not supported by your browser. Please select a city instead.');
           document.getElementById('city-select').value = '';
         }
         return;
