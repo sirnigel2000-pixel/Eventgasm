@@ -97,55 +97,52 @@ class Event {
 
   // Find events near a location
   static async findNearby({ latitude, longitude, radiusMiles = 25, limit = 50, offset = 0, category, startDate, endDate, isFree, source }) {
-    let query = `
-      SELECT *,
-        (3959 * acos(
-          cos(radians($1)) * cos(radians(latitude)) *
-          cos(radians(longitude) - radians($2)) +
-          sin(radians($1)) * sin(radians(latitude))
-        )) AS distance_miles
-      FROM events
-      WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-        AND start_time >= NOW()
-    `;
+    // Use subquery to calculate distance, then filter by it
+    let innerWhere = `latitude IS NOT NULL AND longitude IS NOT NULL AND start_time >= NOW()`;
     const params = [latitude, longitude];
     let paramIndex = 3;
 
     if (category) {
-      query += ` AND category = $${paramIndex}`;
+      innerWhere += ` AND category = $${paramIndex}`;
       params.push(category);
       paramIndex++;
     }
 
     if (isFree) {
-      query += ` AND is_free = true`;
+      innerWhere += ` AND is_free = true`;
     }
 
     if (source) {
-      query += ` AND source = $${paramIndex}`;
+      innerWhere += ` AND source = $${paramIndex}`;
       params.push(source);
       paramIndex++;
     }
 
     if (startDate) {
-      query += ` AND start_time >= $${paramIndex}`;
+      innerWhere += ` AND start_time >= $${paramIndex}`;
       params.push(startDate);
       paramIndex++;
     }
 
     if (endDate) {
-      query += ` AND start_time <= $${paramIndex}`;
+      innerWhere += ` AND start_time <= $${paramIndex}`;
       params.push(endDate);
       paramIndex++;
     }
 
-    query += `
-      HAVING (3959 * acos(
-        cos(radians($1)) * cos(radians(latitude)) *
-        cos(radians(longitude) - radians($2)) +
-        sin(radians($1)) * sin(radians(latitude))
-      )) < $${paramIndex}
-      ORDER BY start_time ASC
+    const query = `
+      SELECT * FROM (
+        SELECT *,
+          (3959 * acos(
+            cos(radians($1)) * cos(radians(latitude)) *
+            cos(radians(longitude) - radians($2)) +
+            sin(radians($1)) * sin(radians(latitude))
+          )) AS distance_miles
+        FROM events
+        WHERE ${innerWhere}
+      ) AS events_with_distance
+      WHERE distance_miles < $${paramIndex}
+      ORDER BY distance_miles ASC, start_time ASC
       LIMIT $${paramIndex + 1} OFFSET $${paramIndex + 2}
     `;
     params.push(radiusMiles, limit, offset);
