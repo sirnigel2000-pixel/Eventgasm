@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -7,14 +7,13 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
-  TextInput,
   ScrollView,
-  Dimensions,
-  Keyboard
+  Dimensions
 } from 'react-native';
 import * as Location from 'expo-location';
 import { fetchEvents } from '../services/api';
 import EventCard from '../components/EventCard';
+import SearchBar from '../components/SearchBar';
 
 const { width } = Dimensions.get('window');
 
@@ -73,8 +72,6 @@ export default function HomeScreen({ navigation }) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const searchInputRef = useRef(null);
-  const [localSearchText, setLocalSearchText] = useState('');
   const [showFreeSection, setShowFreeSection] = useState(true);
 
   // Load free events for the spotlight section
@@ -245,22 +242,7 @@ export default function HomeScreen({ navigation }) {
       <Text style={styles.logo}>🎉 Eventgasm</Text>
       <Text style={styles.tagline}>Find the fun. Skip the search.</Text>
       
-      <View style={styles.searchContainer}>
-        <TextInput
-          ref={searchInputRef}
-          style={styles.searchInput}
-          placeholder="Search events, venues, artists..."
-          placeholderTextColor="#999"
-          defaultValue={searchQuery}
-          onChangeText={(text) => setLocalSearchText(text)}
-          onSubmitEditing={() => {
-            setSearchQuery(localSearchText);
-            Keyboard.dismiss();
-          }}
-          returnKeyType="search"
-          blurOnSubmit={true}
-        />
-      </View>
+      <SearchBar onSearch={setSearchQuery} initialValue={searchQuery} />
 
       {/* Location Picker */}
       <ScrollView 
