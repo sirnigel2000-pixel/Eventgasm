@@ -43,6 +43,15 @@ export function formatEventDate(dateString) {
   return format(date, "MMM d 'at' h:mm a");
 }
 
+export function formatShowtime(dateString) {
+  if (!dateString) return '';
+  
+  const date = parseISO(dateString);
+  
+  // Show day of week, date, and time: "Sat, Mar 15 at 7:30 PM"
+  return format(date, "EEE, MMM d 'at' h:mm a");
+}
+
 export function formatDistance(meters) {
   if (!meters && meters !== 0) return null;
   

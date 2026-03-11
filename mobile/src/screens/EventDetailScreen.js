@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -10,16 +10,21 @@ import {
   Share,
   Dimensions
 } from 'react-native';
-import { formatEventDate } from '../utils/formatters';
+import { formatEventDate, formatShowtime } from '../utils/formatters';
 
 const { width } = Dimensions.get('window');
 
 export default function EventDetailScreen({ route, navigation }) {
   const { event } = route.params;
+  const hasMultipleShowtimes = event.showtimes && event.showtimes.length > 1;
+  const [selectedShowtime, setSelectedShowtime] = useState(
+    hasMultipleShowtimes ? null : (event.showtimes?.[0] || { ticketUrl: event.ticketUrl })
+  );
 
   const handleBuyTickets = () => {
-    if (event.ticketUrl) {
-      Linking.openURL(event.ticketUrl);
+    const ticketUrl = selectedShowtime?.ticketUrl || event.ticketUrl;
+    if (ticketUrl) {
+      Linking.openURL(ticketUrl);
     }
   };
 
@@ -88,17 +93,48 @@ export default function EventDetailScreen({ route, navigation }) {
 
           <Text style={styles.title}>{event.title}</Text>
 
-          <View style={styles.dateSection}>
-            <Text style={styles.dateIcon}>📅</Text>
-            <View>
-              <Text style={styles.dateMain}>
-                {formatEventDate(event.timing?.start)}
+          {hasMultipleShowtimes ? (
+            <View style={styles.showtimesSection}>
+              <Text style={styles.sectionTitle}>📅 Select a Date & Time</Text>
+              <Text style={styles.showtimesHint}>
+                {event.totalShowtimes} showtimes available
               </Text>
-              {event.timing?.timezone && (
-                <Text style={styles.timezone}>{event.timing.timezone}</Text>
-              )}
+              <View style={styles.showtimesList}>
+                {event.showtimes.map((showtime, index) => (
+                  <TouchableOpacity
+                    key={showtime.id || index}
+                    style={[
+                      styles.showtimeItem,
+                      selectedShowtime?.id === showtime.id && styles.showtimeItemSelected
+                    ]}
+                    onPress={() => setSelectedShowtime(showtime)}
+                  >
+                    <Text style={[
+                      styles.showtimeText,
+                      selectedShowtime?.id === showtime.id && styles.showtimeTextSelected
+                    ]}>
+                      {formatShowtime(showtime.start)}
+                    </Text>
+                    {selectedShowtime?.id === showtime.id && (
+                      <Text style={styles.checkmark}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
+          ) : (
+            <View style={styles.dateSection}>
+              <Text style={styles.dateIcon}>📅</Text>
+              <View>
+                <Text style={styles.dateMain}>
+                  {formatEventDate(event.timing?.start)}
+                </Text>
+                {event.timing?.timezone && (
+                  <Text style={styles.timezone}>{event.timing.timezone}</Text>
+                )}
+              </View>
+            </View>
+          )}
 
           {event.venue && (
             <TouchableOpacity style={styles.venueSection} onPress={handleDirections}>
@@ -132,15 +168,25 @@ export default function EventDetailScreen({ route, navigation }) {
 
       <View style={styles.footer}>
         <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>Tickets</Text>
-          <Text style={styles.price}>Available</Text>
+          <Text style={styles.priceLabel}>
+            {hasMultipleShowtimes && !selectedShowtime ? 'Select a date above' : 'Tickets'}
+          </Text>
+          <Text style={styles.price}>
+            {event.isFree ? 'FREE' : 'Available'}
+          </Text>
         </View>
         
         <TouchableOpacity 
-          style={styles.buyButton}
+          style={[
+            styles.buyButton,
+            hasMultipleShowtimes && !selectedShowtime && styles.buyButtonDisabled
+          ]}
           onPress={handleBuyTickets}
+          disabled={hasMultipleShowtimes && !selectedShowtime}
         >
-          <Text style={styles.buyButtonText}>Get Tickets</Text>
+          <Text style={styles.buyButtonText}>
+            {hasMultipleShowtimes && !selectedShowtime ? 'Select Date' : 'Get Tickets'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -362,9 +408,54 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
   },
+  buyButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
   buyButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  showtimesSection: {
+    marginBottom: 20,
+  },
+  showtimesHint: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 12,
+  },
+  showtimesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  showtimeItem: {
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  showtimeItemSelected: {
+    backgroundColor: '#667eea15',
+    borderColor: '#667eea',
+  },
+  showtimeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  showtimeTextSelected: {
+    color: '#667eea',
+  },
+  checkmark: {
+    marginLeft: 8,
+    color: '#667eea',
     fontWeight: '700',
   },
 });
