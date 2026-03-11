@@ -2,6 +2,60 @@ const express = require('express');
 const router = express.Router();
 const Event = require('../models/Event');
 
+// Helper: Group events by title + venue to consolidate multiple showtimes
+function groupEventsByShowtime(events) {
+  const grouped = new Map();
+  
+  for (const event of events) {
+    // Create a key from title + venue name (normalized)
+    const title = (event.title || '').toLowerCase().trim();
+    const venue = (event.venue_name || event.venue?.name || '').toLowerCase().trim();
+    const key = `${title}|||${venue}`;
+    
+    if (grouped.has(key)) {
+      // Add this showtime to existing group
+      const existing = grouped.get(key);
+      existing.showtimes.push({
+        id: event.id,
+        start: event.start_time || event.timing?.start,
+        end: event.end_time || event.timing?.end,
+        ticketUrl: event.ticket_url || event.ticketUrl
+      });
+      // Update date range
+      const newStart = new Date(event.start_time || event.timing?.start);
+      if (newStart < new Date(existing.dateRange.start)) {
+        existing.dateRange.start = event.start_time || event.timing?.start;
+      }
+      if (newStart > new Date(existing.dateRange.end)) {
+        existing.dateRange.end = event.start_time || event.timing?.start;
+      }
+    } else {
+      // Create new group
+      const startTime = event.start_time || event.timing?.start;
+      grouped.set(key, {
+        ...event,
+        showtimes: [{
+          id: event.id,
+          start: startTime,
+          end: event.end_time || event.timing?.end,
+          ticketUrl: event.ticket_url || event.ticketUrl
+        }],
+        dateRange: {
+          start: startTime,
+          end: startTime
+        },
+        totalShowtimes: 1
+      });
+    }
+  }
+  
+  // Convert map to array and update totalShowtimes
+  return Array.from(grouped.values()).map(event => ({
+    ...event,
+    totalShowtimes: event.showtimes.length
+  }));
+}
+
 // GET /api/events - List events with filters
 router.get('/', async (req, res) => {
   try {
@@ -84,10 +138,18 @@ router.get('/', async (req, res) => {
       });
     }
 
+    // Group events by title+venue to consolidate showtimes (default: on)
+    const shouldGroup = req.query.group !== 'false';
+    let processedEvents = events.map(formatEvent);
+    
+    if (shouldGroup) {
+      processedEvents = groupEventsByShowtime(processedEvents);
+    }
+
     res.json({
       success: true,
-      count: events.length,
-      events: events.map(formatEvent)
+      count: processedEvents.length,
+      events: processedEvents
     });
   } catch (error) {
     console.error('Error fetching events:', error);
