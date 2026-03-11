@@ -29,14 +29,35 @@ const VIBES = [
   { id: 'family', name: 'Family', emoji: '👨‍👩‍👧' },
 ];
 
-const FL_CITIES = [
-  { name: 'All Florida', value: null },
-  { name: 'Miami', value: 'Miami' },
-  { name: 'Orlando', value: 'Orlando' },
-  { name: 'Tampa', value: 'Tampa' },
-  { name: 'Jacksonville', value: 'Jacksonville' },
-  { name: 'Fort Lauderdale', value: 'Fort Lauderdale' },
-  { name: 'West Palm Beach', value: 'West Palm Beach' },
+// Cities with coordinates for radius-based search
+const LOCATIONS = [
+  { name: '📍 All Locations', value: null },
+  { name: '📍 Near Me', value: 'geolocate' },
+  // Florida
+  { name: '🌴 Orlando, FL', value: { lat: 28.5383, lng: -81.3792 } },
+  { name: '🌴 Miami, FL', value: { lat: 25.7617, lng: -80.1918 } },
+  { name: '🌴 Tampa, FL', value: { lat: 27.9506, lng: -82.4572 } },
+  { name: '🌴 Jacksonville, FL', value: { lat: 30.3322, lng: -81.6557 } },
+  { name: '🌴 Fort Lauderdale, FL', value: { lat: 26.1224, lng: -80.1373 } },
+  { name: '🌴 Sarasota, FL', value: { lat: 27.3364, lng: -82.5307 } },
+  { name: '🌴 Melbourne, FL', value: { lat: 28.0836, lng: -80.6081 } },
+  // Major US Cities
+  { name: '🗽 New York, NY', value: { lat: 40.7128, lng: -74.0060 } },
+  { name: '🌆 Los Angeles, CA', value: { lat: 34.0522, lng: -118.2437 } },
+  { name: '🌬️ Chicago, IL', value: { lat: 41.8781, lng: -87.6298 } },
+  { name: '🤠 Houston, TX', value: { lat: 29.7604, lng: -95.3698 } },
+  { name: '🤠 Dallas, TX', value: { lat: 32.7767, lng: -96.7970 } },
+  { name: '🤠 Austin, TX', value: { lat: 30.2672, lng: -97.7431 } },
+  { name: '🍑 Atlanta, GA', value: { lat: 33.7490, lng: -84.3880 } },
+  { name: '🎸 Nashville, TN', value: { lat: 36.1627, lng: -86.7816 } },
+  { name: '⚜️ New Orleans, LA', value: { lat: 29.9511, lng: -90.0715 } },
+  { name: '🎰 Las Vegas, NV', value: { lat: 36.1699, lng: -115.1398 } },
+  { name: '🌉 San Francisco, CA', value: { lat: 37.7749, lng: -122.4194 } },
+  { name: '☔ Seattle, WA', value: { lat: 47.6062, lng: -122.3321 } },
+  { name: '🏔️ Denver, CO', value: { lat: 39.7392, lng: -104.9903 } },
+  { name: '🔔 Philadelphia, PA', value: { lat: 39.9526, lng: -75.1652 } },
+  { name: '🏛️ Washington, DC', value: { lat: 38.9072, lng: -77.0369 } },
+  { name: '🦀 Boston, MA', value: { lat: 42.3601, lng: -71.0589 } },
 ];
 
 export default function HomeScreen({ navigation }) {
@@ -46,8 +67,8 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedVibe, setSelectedVibe] = useState('all');
-  const [selectedCity, setSelectedCity] = useState(null);
-  const [location, setLocation] = useState(null);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [locationCoords, setLocationCoords] = useState(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,14 +96,11 @@ export default function HomeScreen({ navigation }) {
         offset: (currentPage - 1) * 20,
       };
 
-      // For free events, search nationwide (no state filter)
-      // For other filters, default to FL
-      if (selectedVibe !== 'free') {
-        params.state = 'FL';
-      }
-
-      if (selectedCity) {
-        params.city = selectedCity;
+      // Use location coordinates for radius search if available
+      if (locationCoords) {
+        params.lat = locationCoords.lat;
+        params.lng = locationCoords.lng;
+        params.radius = 25;
       }
 
       if (selectedVibe === 'free') {
@@ -108,12 +126,6 @@ export default function HomeScreen({ navigation }) {
         params.search = searchQuery.trim();
       }
 
-      if (location) {
-        params.lat = location.coords.latitude;
-        params.lng = location.coords.longitude;
-        params.radius = 50;
-      }
-
       const data = await fetchEvents(params);
       
       if (reset) {
@@ -127,17 +139,29 @@ export default function HomeScreen({ navigation }) {
     } catch (error) {
       console.error('Failed to load events:', error);
     }
-  }, [page, selectedVibe, selectedCity, location, searchQuery]);
+  }, [page, selectedVibe, locationCoords, searchQuery]);
 
-  useEffect(() => {
-    (async () => {
+  // Handle location selection
+  const handleLocationSelect = async (location) => {
+    setSelectedLocation(location);
+    
+    if (location?.value === 'geolocate') {
+      // Request user's location
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({});
-        setLocation(loc);
+        setLocationCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      } else {
+        alert('Location permission denied. Please select a city instead.');
+        setSelectedLocation(null);
+        setLocationCoords(null);
       }
-    })();
-  }, []);
+    } else if (location?.value) {
+      setLocationCoords(location.value);
+    } else {
+      setLocationCoords(null);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -146,7 +170,7 @@ export default function HomeScreen({ navigation }) {
       loadEvents(true),
       loadFreeEvents()
     ]).finally(() => setLoading(false));
-  }, [selectedVibe, selectedCity]);
+  }, [selectedVibe, locationCoords]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -230,26 +254,26 @@ export default function HomeScreen({ navigation }) {
         />
       </View>
 
-      {/* City Picker */}
+      {/* Location Picker */}
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
         style={styles.cityScroll}
       >
-        {FL_CITIES.map(city => (
+        {LOCATIONS.map(loc => (
           <TouchableOpacity
-            key={city.name}
+            key={loc.name}
             style={[
               styles.cityChip,
-              selectedCity === city.value && styles.cityChipSelected
+              selectedLocation?.name === loc.name && styles.cityChipSelected
             ]}
-            onPress={() => setSelectedCity(city.value)}
+            onPress={() => handleLocationSelect(loc)}
           >
             <Text style={[
               styles.cityChipText,
-              selectedCity === city.value && styles.cityChipTextSelected
+              selectedLocation?.name === loc.name && styles.cityChipTextSelected
             ]}>
-              {city.name}
+              {loc.name}
             </Text>
           </TouchableOpacity>
         ))}
