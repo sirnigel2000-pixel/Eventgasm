@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  Dimensions
+  Dimensions,
+  Keyboard
 } from 'react-native';
 import * as Location from 'expo-location';
 import { fetchEvents } from '../services/api';
@@ -72,6 +73,8 @@ export default function HomeScreen({ navigation }) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
+  const [localSearchText, setLocalSearchText] = useState('');
   const [showFreeSection, setShowFreeSection] = useState(true);
 
   // Load free events for the spotlight section
@@ -244,13 +247,18 @@ export default function HomeScreen({ navigation }) {
       
       <View style={styles.searchContainer}>
         <TextInput
+          ref={searchInputRef}
           style={styles.searchInput}
           placeholder="Search events, venues, artists..."
           placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
+          defaultValue={searchQuery}
+          onChangeText={(text) => setLocalSearchText(text)}
+          onSubmitEditing={() => {
+            setSearchQuery(localSearchText);
+            Keyboard.dismiss();
+          }}
           returnKeyType="search"
+          blurOnSubmit={true}
         />
       </View>
 
@@ -348,6 +356,8 @@ export default function HomeScreen({ navigation }) {
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       />
     </View>
   );
