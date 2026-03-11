@@ -73,8 +73,13 @@ export default function HomeScreen({ navigation }) {
       const params = {
         limit: 20,
         offset: (currentPage - 1) * 20,
-        state: 'FL',
       };
+
+      // For free events, search nationwide (no state filter)
+      // For other filters, default to FL
+      if (selectedVibe !== 'free') {
+        params.state = 'FL';
+      }
 
       if (selectedCity) {
         params.city = selectedCity;
