@@ -254,6 +254,11 @@
       color: #fff;
     }
     
+    .badge-dates {
+      background: #667eea;
+      color: #fff;
+    }
+    
     .badge-category {
       background: rgba(255,255,255,0.2);
     }
@@ -433,6 +438,44 @@
     .btn-secondary {
       background: rgba(255,255,255,0.2);
       color: #fff;
+    }
+    
+    .btn-disabled {
+      background: rgba(255,255,255,0.3);
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    
+    .showtimes-section {
+      margin-bottom: 16px;
+    }
+    
+    .showtimes-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .showtime-btn {
+      background: rgba(255,255,255,0.15);
+      border: 2px solid transparent;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .showtime-btn:hover {
+      background: rgba(255,255,255,0.25);
+    }
+    
+    .showtime-btn.selected {
+      background: #fff;
+      color: #667eea;
+      border-color: #fff;
     }
     
     /* Loading */
@@ -845,12 +888,13 @@
               <div class="event-info">
                 <div class="event-badges">
                   ${event.isFree ? '<span class="badge badge-free">FREE</span>' : ''}
+                  ${event.totalShowtimes > 1 ? `<span class="badge badge-dates">${event.totalShowtimes} dates</span>` : ''}
                   ${event.source === 'allevents' || event.source === 'library' || event.source === 'parks' ? '<span class="badge badge-local">LOCAL</span>' : ''}
                 </div>
                 <div class="event-title">${escapeHtml(event.title)}</div>
                 <div class="event-meta">
                   <span>📍 ${event.venue?.city || 'TBA'}${event.venue?.state ? ', ' + event.venue.state : ''}${event.distance ? ' · ' + event.distance.toFixed(1) + ' mi' : ''}</span>
-                  <span>📅 ${formatDate(event.timing?.start)}</span>
+                  <span>📅 ${event.totalShowtimes > 1 && event.dateRange ? formatDateRange(event.dateRange.start, event.dateRange.end) : formatDate(event.timing?.start)}</span>
                 </div>
                 ${!event.isFree && event.priceRange?.min ? `<div class="event-price">From $${event.priceRange.min}</div>` : ''}
               </div>
@@ -869,25 +913,58 @@
       loadEvents();
     }
     
+    // Track selected showtime for multi-date events
+    let selectedShowtime = null;
+    
     // Show event details modal
     function showEventDetails(event) {
       const modal = document.getElementById('modal-overlay');
+      selectedShowtime = null;
+      
       document.getElementById('modal-image').src = event.image || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23667eea%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2260%22 text-anchor=%22middle%22 font-size=%2250%22>🎉</text></svg>';
       document.getElementById('modal-title').textContent = event.title;
       
-      document.getElementById('modal-details').innerHTML = `
-        <p><strong>📅 Date:</strong> ${formatDate(event.timing?.start, true)}</p>
+      // Build details HTML
+      let detailsHtml = '';
+      
+      // If multiple showtimes, show picker
+      if (event.showtimes && event.showtimes.length > 1) {
+        detailsHtml += `
+          <div class="showtimes-section">
+            <p><strong>📅 Select a Date & Time:</strong></p>
+            <p style="font-size:0.85rem;opacity:0.8;margin-bottom:12px;">${event.totalShowtimes} showtimes available</p>
+            <div class="showtimes-grid">
+              ${event.showtimes.map((st, i) => `
+                <button class="showtime-btn" onclick="selectShowtime(${i}, '${st.ticketUrl || event.ticketUrl}')" data-index="${i}">
+                  ${formatShowtime(st.start)}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        detailsHtml += `<p><strong>📅 Date:</strong> ${formatDate(event.timing?.start, true)}</p>`;
+      }
+      
+      detailsHtml += `
         <p><strong>📍 Location:</strong> ${event.venue?.name || 'TBA'}${event.venue?.city ? ', ' + event.venue.city : ''}${event.venue?.state ? ', ' + event.venue.state : ''}</p>
         ${event.priceRange?.min ? `<p><strong>💰 Price:</strong> ${event.isFree ? 'FREE' : '$' + event.priceRange.min + (event.priceRange.max && event.priceRange.max !== event.priceRange.min ? ' - $' + event.priceRange.max : '')}</p>` : event.isFree ? '<p><strong>💰 Price:</strong> FREE</p>' : ''}
         ${event.categories?.length ? `<p><strong>🏷️ Category:</strong> ${event.categories.join(', ')}</p>` : ''}
       `;
       
+      document.getElementById('modal-details').innerHTML = detailsHtml;
       document.getElementById('modal-description').textContent = event.description || 'No description available.';
       
+      // Build actions HTML
+      const hasMultipleShowtimes = event.showtimes && event.showtimes.length > 1;
       let actionsHtml = '';
-      if (event.ticketUrl) {
+      
+      if (hasMultipleShowtimes) {
+        actionsHtml = `<a href="#" id="ticket-btn" class="btn btn-primary btn-disabled" onclick="return false;">📅 Select a date first</a>`;
+      } else if (event.ticketUrl) {
         actionsHtml += `<a href="${event.ticketUrl}" target="_blank" class="btn btn-primary">🎟️ Get Tickets</a>`;
       }
+      
       if (event.shareUrl && event.shareUrl !== event.ticketUrl) {
         actionsHtml += `<a href="${event.shareUrl}" target="_blank" class="btn btn-secondary">ℹ️ More Info</a>`;
       }
@@ -898,6 +975,25 @@
       
       modal.classList.add('active');
       document.body.style.overflow = 'hidden';
+    }
+    
+    // Select a showtime
+    function selectShowtime(index, ticketUrl) {
+      // Update button states
+      document.querySelectorAll('.showtime-btn').forEach((btn, i) => {
+        btn.classList.toggle('selected', i === index);
+      });
+      
+      // Update ticket button
+      const ticketBtn = document.getElementById('ticket-btn');
+      if (ticketBtn) {
+        ticketBtn.href = ticketUrl;
+        ticketBtn.textContent = '🎟️ Get Tickets';
+        ticketBtn.classList.remove('btn-disabled');
+        ticketBtn.onclick = null;
+      }
+      
+      selectedShowtime = { index, ticketUrl };
     }
     
     // Close modal
@@ -924,6 +1020,31 @@
         return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
       }
       return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+    
+    // Helper: Format date range
+    function formatDateRange(startStr, endStr) {
+      if (!startStr) return 'TBA';
+      if (!endStr || startStr === endStr) return formatDate(startStr);
+      
+      const start = new Date(startStr);
+      const end = new Date(endStr);
+      
+      // Same month: "Mar 12-20"
+      if (start.getMonth() === end.getMonth()) {
+        return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '-' + end.getDate();
+      }
+      
+      // Different months: "Mar 12 - Apr 5"
+      return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' - ' + 
+             end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    // Helper: Format showtime for picker
+    function formatShowtime(dateStr) {
+      if (!dateStr) return 'TBA';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
     
     // Helper: Escape HTML
