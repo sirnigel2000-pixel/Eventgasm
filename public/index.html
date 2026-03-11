@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eventgasm - Find Events Near You</title>
+  <meta name="description" content="Discover concerts, festivals, community events, and more. Free and paid events nationwide.">
+  <meta property="og:title" content="Eventgasm - Find Events Near You">
+  <meta property="og:description" content="Discover concerts, festivals, community events, and more.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://eventgasm.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    
+    /* Header */
+    header {
+      padding: 20px 0;
+    }
+    
+    .logo {
+      font-size: 28px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .logo-icon {
+      font-size: 32px;
+    }
+    
+    /* Hero */
+    .hero {
+      padding: 60px 0 80px;
+      text-align: center;
+    }
+    
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 800;
+      margin-bottom: 20px;
+      line-height: 1.1;
+    }
+    
+    .hero p {
+      font-size: 1.25rem;
+      opacity: 0.9;
+      max-width: 600px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+    
+    .cta-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .btn {
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    
+    .btn-primary {
+      background: #fff;
+      color: #667eea;
+    }
+    
+    .btn-secondary {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+    
+    /* Features */
+    .features {
+      padding: 60px 0;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+    }
+    
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 30px;
+    }
+    
+    .feature {
+      text-align: center;
+      padding: 30px;
+    }
+    
+    .feature-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+    }
+    
+    .feature h3 {
+      font-size: 1.25rem;
+      margin-bottom: 10px;
+    }
+    
+    .feature p {
+      opacity: 0.8;
+      line-height: 1.5;
+    }
+    
+    /* Live Events */
+    .live-events {
+      padding: 60px 0;
+    }
+    
+    .live-events h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 40px;
+    }
+    
+    .events-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    
+    .event-card {
+      background: rgba(255,255,255,0.15);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: transform 0.2s;
+    }
+    
+    .event-card:hover {
+      transform: translateY(-4px);
+    }
+    
+    .event-image {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      background: rgba(0,0,0,0.2);
+    }
+    
+    .event-info {
+      padding: 16px;
+    }
+    
+    .event-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .event-meta {
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+    
+    .event-meta span {
+      display: block;
+      margin-bottom: 4px;
+    }
+    
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      text-align: center;
+      opacity: 0.8;
+      font-size: 0.9rem;
+    }
+    
+    footer a {
+      color: #fff;
+    }
+    
+    .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+    
+    @media (max-width: 640px) {
+      .hero {
+        padding: 40px 0 60px;
+      }
+      .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+      .btn {
+        width: 100%;
+        max-width: 300px;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="logo">
+        <span class="logo-icon">🎉</span>
+        <span>Eventgasm</span>
+      </div>
+    </div>
+  </header>
+  
+  <section class="hero">
+    <div class="container">
+      <div class="badge">✨ Now with nationwide coverage</div>
+      <h1>Find Amazing Events<br>Near You</h1>
+      <p>Discover concerts, festivals, free community events, and more. From major shows to hidden local gems — we've got it all.</p>
+      <div class="cta-buttons">
+        <a href="#events" class="btn btn-primary">
+          🔍 Browse Events
+        </a>
+        <a href="#" class="btn btn-secondary" id="app-store-btn">
+          📱 App Coming Soon
+        </a>
+      </div>
+    </div>
+  </section>
+  
+  <section class="features">
+    <div class="container">
+      <div class="features-grid">
+        <div class="feature">
+          <div class="feature-icon">🎵</div>
+          <h3>Concerts & Shows</h3>
+          <p>From stadium tours to intimate venues, find live music happening near you.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🆓</div>
+          <h3>Free Events</h3>
+          <p>Library workshops, park concerts, community festivals — all free!</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">📍</div>
+          <h3>Nationwide</h3>
+          <p>Events in every major city across the US. Find what's happening anywhere.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🎭</div>
+          <h3>All Categories</h3>
+          <p>Music, sports, comedy, food, arts, family events, and more.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <section class="live-events" id="events">
+    <div class="container">
+      <h2>🔥 Happening Soon</h2>
+      <div class="events-grid" id="events-container">
+        <div class="event-card">
+          <div class="event-image" style="display:flex;align-items:center;justify-content:center;">Loading...</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <footer>
+    <div class="container">
+      <p>© 2026 Eventgasm. Made with 🎉 in Florida.</p>
+      <p style="margin-top: 10px;">
+        <a href="/api/events">API</a>
+      </p>
+    </div>
+  </footer>
+  
+  <script>
+    // Fetch and display live events
+    async function loadEvents() {
+      try {
+        const res = await fetch('/api/events?limit=6');
+        const data = await res.json();
+        
+        if (data.success && data.events.length > 0) {
+          const container = document.getElementById('events-container');
+          container.innerHTML = data.events.map(event => `
+            <a href="${event.ticketUrl || event.shareUrl}" target="_blank" class="event-card" style="text-decoration:none;color:inherit;">
+              <img class="event-image" src="${event.image || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎉</text></svg>'}" alt="${event.title}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎉</text></svg>'">
+              <div class="event-info">
+                <div class="event-title">${event.title}</div>
+                <div class="event-meta">
+                  <span>📍 ${event.venue?.city || 'TBA'}${event.venue?.state ? ', ' + event.venue.state : ''}</span>
+                  <span>📅 ${new Date(event.timing?.start).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                  ${event.isFree ? '<span style="color:#4ade80;">🆓 FREE</span>' : ''}
+                </div>
+              </div>
+            </a>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load events:', err);
+      }
+    }
+    
+    loadEvents();
+  </script>
+</body>
+</html>

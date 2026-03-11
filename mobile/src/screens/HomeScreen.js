@@ -56,8 +56,8 @@ export default function HomeScreen({ navigation }) {
   // Load free events for the spotlight section
   const loadFreeEvents = useCallback(async () => {
     try {
+      // Don't filter by state - show free events nationwide
       const data = await fetchEvents({
-        state: 'FL',
         free: 'true',
         limit: 10,
       });
