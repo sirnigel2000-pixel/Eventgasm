@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   Dimensions 
 } from 'react-native';
-import { formatEventDate, formatDistance } from '../utils/formatters';
+import { formatEventDate, formatDateRange, formatDistance } from '../utils/formatters';
 
 const { width } = Dimensions.get('window');
 
 export default function EventCard({ event, onPress }) {
   const isFree = event.isFree || event.price?.isFree;
+  const hasMultipleShowtimes = event.totalShowtimes && event.totalShowtimes > 1;
 
   return (
     <TouchableOpacity 
@@ -40,8 +41,15 @@ export default function EventCard({ event, onPress }) {
           </View>
         )}
 
+        {/* Multiple Showtimes Badge */}
+        {hasMultipleShowtimes && (
+          <View style={styles.showtimesBadge}>
+            <Text style={styles.showtimesBadgeText}>{event.totalShowtimes} dates</Text>
+          </View>
+        )}
+
         {/* Source Badge */}
-        {event.source === 'allevents' && (
+        {event.source === 'allevents' && !hasMultipleShowtimes && (
           <View style={styles.localBadge}>
             <Text style={styles.localBadgeText}>LOCAL</Text>
           </View>
@@ -63,7 +71,9 @@ export default function EventCard({ event, onPress }) {
         </Text>
         
         <Text style={styles.date}>
-          {formatEventDate(event.timing?.start)}
+          {hasMultipleShowtimes && event.dateRange
+            ? formatDateRange(event.dateRange.start, event.dateRange.end)
+            : formatEventDate(event.timing?.start)}
         </Text>
         
         <View style={styles.footer}>
@@ -134,6 +144,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   localBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  showtimesBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#667eea',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  showtimesBadgeText: {
     color: '#fff',
     fontSize: 10,
     fontWeight: '700',

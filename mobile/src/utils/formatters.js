@@ -1,4 +1,27 @@
-import { format, parseISO, isToday, isTomorrow, isThisWeek } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, isThisWeek, isSameMonth, isSameYear } from 'date-fns';
+
+export function formatDateRange(startString, endString) {
+  if (!startString) return '';
+  if (!endString || startString === endString) {
+    return formatEventDate(startString);
+  }
+  
+  const start = parseISO(startString);
+  const end = parseISO(endString);
+  
+  // Same month: "Mar 12-20"
+  if (isSameMonth(start, end)) {
+    return `${format(start, 'MMM d')}-${format(end, 'd')}`;
+  }
+  
+  // Same year: "Mar 12 - Apr 5"
+  if (isSameYear(start, end)) {
+    return `${format(start, 'MMM d')} - ${format(end, 'MMM d')}`;
+  }
+  
+  // Different years
+  return `${format(start, 'MMM d, yyyy')} - ${format(end, 'MMM d, yyyy')}`;
+}
 
 export function formatEventDate(dateString) {
   if (!dateString) return '';
