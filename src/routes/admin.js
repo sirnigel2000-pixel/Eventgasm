@@ -80,6 +80,29 @@ router.post('/sync/quick', authMiddleware, async (req, res) => {
   res.json({ message: 'Quick sync started', status: 'running' });
 });
 
+// DELETE /admin/events/cleanup - Remove test/junk events
+router.delete('/events/cleanup', authMiddleware, async (req, res) => {
+  try {
+    // Delete events with test-like titles
+    const result = await pool.query(`
+      DELETE FROM events 
+      WHERE LOWER(title) LIKE '%test%'
+         OR LOWER(title) LIKE '%copy event%'
+         OR LOWER(title) LIKE '%placeholder%'
+         OR LOWER(title) LIKE '%sample%'
+      RETURNING id, title
+    `);
+    
+    res.json({ 
+      message: 'Cleaned up test events',
+      eventsDeleted: result.rowCount,
+      deleted: result.rows
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /admin/fix-free-flags - Fix incorrectly marked free events
 router.post('/fix-free-flags', authMiddleware, async (req, res) => {
   try {
