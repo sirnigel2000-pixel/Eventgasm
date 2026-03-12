@@ -284,8 +284,19 @@ export default function HomeScreen({ navigation }) {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Text style={styles.logo}>🎉 Eventgasm</Text>
-      <Text style={styles.tagline}>Find the fun. Skip the search.</Text>
+      <View style={styles.headerTop}>
+        <View>
+          <Text style={styles.logo}>🎉 Eventgasm</Text>
+          <Text style={styles.tagline}>Find the fun. Skip the search.</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.mapButton}
+          onPress={() => navigation.navigate('Map')}
+        >
+          <Text style={styles.mapButtonIcon}>🗺️</Text>
+          <Text style={styles.mapButtonText}>Map</Text>
+        </TouchableOpacity>
+      </View>
       
       <SearchBar onSearch={setSearchQuery} initialValue={searchQuery} />
 
@@ -438,18 +449,40 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: 8,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#667eea',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  mapButtonIcon: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  mapButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   logo: {
     fontSize: 32,
     fontWeight: '800',
     color: '#1a1a1a',
-    textAlign: 'center',
     marginBottom: 4,
   },
   tagline: {
     fontSize: 14,
     color: '#888',
-    textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   searchContainer: {
     paddingHorizontal: 16,

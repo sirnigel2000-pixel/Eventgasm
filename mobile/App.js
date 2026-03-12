@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import HomeScreen from './src/screens/HomeScreen';
 import EventDetailScreen from './src/screens/EventDetailScreen';
+import MapScreen from './src/screens/MapScreen';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 
 const Stack = createNativeStackNavigator();
@@ -26,6 +27,13 @@ export default function App() {
           component={EventDetailScreen}
           options={{
             animation: 'slide_from_bottom',
+          }}
+        />
+        <Stack.Screen 
+          name="Map" 
+          component={MapScreen}
+          options={{
+            animation: 'slide_from_right',
           }}
         />
       </Stack.Navigator>
