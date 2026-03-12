@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   ScrollView,
-  Dimensions
+  Dimensions,
+  Image
 } from 'react-native';
 import * as Location from 'expo-location';
 import { fetchEvents } from '../services/api';
