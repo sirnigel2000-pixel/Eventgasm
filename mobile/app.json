@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.eventgasm.app"
+      "bundleIdentifier": "com.eventgasm.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +25,11 @@
         "backgroundColor": "#667eea"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.eventgasm.app"
+      "package": "com.eventgasm.app",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -34,6 +41,12 @@
           "locationWhenInUsePermission": "Allow Eventgasm to find nearby events."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "031730c8-fe15-4250-989a-1781de213e33"
+      }
+    },
+    "owner": "nigel2000"
   }
 }
