@@ -225,10 +225,10 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.freeBadgeText}>FREE</Text>
               </View>
               <Text style={styles.spotlightCardTitle} numberOfLines={2}>
-                {event.title}
+                {event.title || 'Event'}
               </Text>
               <Text style={styles.spotlightCardLocation} numberOfLines={1}>
-                📍 {event.venue?.city || 'Florida'}
+                {'📍 '}{event.venue?.city || 'Florida'}
               </Text>
             </TouchableOpacity>
           ))}

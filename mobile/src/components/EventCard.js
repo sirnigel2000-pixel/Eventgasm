@@ -61,9 +61,9 @@ export default function EventCard({ event, onPress }) {
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{event.category}</Text>
+            <Text style={styles.categoryText}>{event.category || 'Event'}</Text>
           </View>
-          {event.distance && (
+          {event.distance != null && formatDistance(event.distance) && (
             <Text style={styles.distance}>{formatDistance(event.distance)}</Text>
           )}
         </View>
@@ -75,7 +75,7 @@ export default function EventCard({ event, onPress }) {
         <Text style={styles.date}>
           {hasMultipleShowtimes && event.dateRange
             ? formatDateRange(event.dateRange.start, event.dateRange.end)
-            : formatEventDate(event.timing?.start)}
+            : formatEventDate(event.timing?.start) || 'Date TBA'}
         </Text>
         
         <View style={styles.footer}>
