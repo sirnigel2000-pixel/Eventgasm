@@ -5,7 +5,7 @@ const { pool } = require('../db');
 // Import all source integrations
 const ticketmaster = require('./ticketmaster');
 const seatgeek = require('./seatgeek');
-let allevents, bandsintown, libraryEvents, parksAndRec;
+let allevents, bandsintown, libraryEvents, parksAndRec, meetup, communityEvents, eventbrite;
 
 // Dynamic imports for new sources
 try {
@@ -30,6 +30,24 @@ try {
   parksAndRec = require('./parksAndRec');
 } catch (e) {
   console.log('[SyncManager] Parks & Rec module not available');
+}
+
+try {
+  meetup = require('./meetup');
+} catch (e) {
+  console.log('[SyncManager] Meetup module not available');
+}
+
+try {
+  communityEvents = require('./communityEvents');
+} catch (e) {
+  console.log('[SyncManager] Community Events module not available');
+}
+
+try {
+  eventbrite = require('./eventbrite');
+} catch (e) {
+  console.log('[SyncManager] Eventbrite module not available');
 }
 
 // Track sync status
@@ -67,6 +85,9 @@ async function runFullSync() {
     bandsintown: 0,
     library: 0,
     parks: 0,
+    meetup: 0,
+    community: 0,
+    eventbrite: 0,
     errors: []
   };
 
@@ -147,6 +168,42 @@ async function runFullSync() {
       }
     }
 
+    // Meetup (niche community events - dog meetups, craft groups, etc)
+    if (meetup) {
+      console.log('[SyncManager] Syncing Meetup Events...');
+      try {
+        stats.meetup = await meetup.syncMajorCities();
+        await logSync('meetup', 'US', stats.meetup, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Meetup: ${err.message}`);
+        await logSync('meetup', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // Community Events (festivals, fairs, cultural events)
+    if (communityEvents) {
+      console.log('[SyncManager] Syncing Community Events (festivals, fairs)...');
+      try {
+        stats.community = await communityEvents.syncMajorCities();
+        await logSync('community', 'US', stats.community, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Community: ${err.message}`);
+        await logSync('community', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // Eventbrite (beer festivals, craft shows, local events)
+    if (eventbrite && process.env.EVENTBRITE_API_KEY) {
+      console.log('[SyncManager] Syncing Eventbrite...');
+      try {
+        stats.eventbrite = await eventbrite.syncMajorCities();
+        await logSync('eventbrite', 'US', stats.eventbrite, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Eventbrite: ${err.message}`);
+        await logSync('eventbrite', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
   } catch (error) {
     console.error('[SyncManager] Fatal sync error:', error);
     stats.errors.push(`Fatal: ${error.message}`);
@@ -161,7 +218,8 @@ async function runFullSync() {
   }
 
   const duration = Math.round((Date.now() - startTime) / 1000);
-  const total = stats.ticketmaster + stats.seatgeek + stats.allevents + stats.bandsintown + stats.library + stats.parks;
+  const total = stats.ticketmaster + stats.seatgeek + stats.allevents + stats.bandsintown + 
+                stats.library + stats.parks + stats.meetup + stats.community + stats.eventbrite;
   
   console.log(`[SyncManager] Sync complete in ${duration}s`);
   console.log(`  - Ticketmaster: ${stats.ticketmaster}`);
@@ -170,6 +228,9 @@ async function runFullSync() {
   console.log(`  - Bandsintown: ${stats.bandsintown}`);
   console.log(`  - Library Events: ${stats.library}`);
   console.log(`  - Parks & Rec: ${stats.parks}`);
+  console.log(`  - Meetup: ${stats.meetup}`);
+  console.log(`  - Community: ${stats.community}`);
+  console.log(`  - Eventbrite: ${stats.eventbrite}`);
   console.log(`  - Total: ${total}`);
   if (stats.errors.length) {
     console.log(`  - Errors: ${stats.errors.join('; ')}`);
