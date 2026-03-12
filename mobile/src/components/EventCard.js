@@ -1,18 +1,21 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { 
   View, 
   Text, 
-  Image, 
   StyleSheet, 
   TouchableOpacity,
   Dimensions 
 } from 'react-native';
+import { Image } from 'expo-image'; // Fast cached images
 import { formatEventDate, formatDateRange, formatDistance } from '../utils/formatters';
 import { useFavorites } from '../context/FavoritesContext';
 
+// Blurhash placeholder for loading state
+const PLACEHOLDER_BLUR = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
+
 const { width } = Dimensions.get('window');
 
-export default function EventCard({ event, onPress }) {
+function EventCard({ event, onPress }) {
   const { toggleFavorite, isFavorite } = useFavorites();
   const favorited = isFavorite(event.id);
   
@@ -30,9 +33,12 @@ export default function EventCard({ event, onPress }) {
       <View style={styles.imageContainer}>
         {event.image ? (
           <Image 
-            source={{ uri: event.image }} 
+            source={event.image}
             style={styles.image}
-            resizeMode="cover"
+            contentFit="cover"
+            placeholder={PLACEHOLDER_BLUR}
+            transition={200}
+            cachePolicy="memory-disk"
           />
         ) : (
           <View style={[styles.image, styles.placeholderImage]}>
@@ -271,3 +277,6 @@ const styles = StyleSheet.create({
     color: '#888',
   },
 });
+
+// Memoize to prevent unnecessary re-renders
+export default memo(EventCard);

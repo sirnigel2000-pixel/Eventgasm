@@ -9,8 +9,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
-  Image
 } from 'react-native';
+import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { fetchEvents } from '../services/api';
 import EventCard from '../components/EventCard';
@@ -319,8 +319,11 @@ export default function HomeScreen({ navigation }) {
             >
               {event.image && (
                 <Image 
-                  source={{ uri: event.image }} 
+                  source={event.image}
                   style={styles.forYouImage}
+                  contentFit="cover"
+                  transition={150}
+                  cachePolicy="memory-disk"
                 />
               )}
               <View style={styles.forYouContent}>
@@ -561,6 +564,17 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        // Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        initialNumToRender={8}
+        updateCellsBatchingPeriod={50}
+        getItemLayout={(data, index) => ({
+          length: 320, // Approximate card height
+          offset: 320 * index,
+          index,
+        })}
       />
     </View>
   );
