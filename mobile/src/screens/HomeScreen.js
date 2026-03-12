@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -237,7 +237,24 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  // Track if this is the initial mount
+  const isInitialMount = useRef(true);
+
   useEffect(() => {
+    // Skip the very first render (initial mount handles its own load)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      // Initial load
+      setLoading(true);
+      Promise.all([
+        loadEvents(true),
+        loadFreeEvents(),
+        loadRecommendedEvents()
+      ]).finally(() => setLoading(false));
+      return;
+    }
+
+    // Subsequent filter changes
     setLoading(true);
     setPage(1);
     Promise.all([

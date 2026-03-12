@@ -1,11 +1,35 @@
-import React, { useState, useRef, memo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { View, TextInput, StyleSheet, Keyboard } from 'react-native';
+
+// Debounce hook
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 const SearchBar = memo(({ onSearch, initialValue = '' }) => {
   const [text, setText] = useState(initialValue);
   const inputRef = useRef(null);
+  
+  // Debounce the search - wait 500ms after user stops typing
+  const debouncedText = useDebounce(text, 500);
+
+  // Trigger search when debounced value changes
+  useEffect(() => {
+    onSearch(debouncedText);
+  }, [debouncedText, onSearch]);
 
   const handleSubmit = () => {
+    // Immediate search on submit (bypass debounce)
     onSearch(text);
     Keyboard.dismiss();
   };
