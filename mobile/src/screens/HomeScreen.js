@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import { fetchEvents } from '../services/api';
 import EventCard from '../components/EventCard';
 import SearchBar from '../components/SearchBar';
+import SkeletonCard from '../components/SkeletonCard';
 
 const { width } = Dimensions.get('window');
 
@@ -385,11 +386,12 @@ export default function HomeScreen({ navigation }) {
 
   if (loading && events.length === 0) {
     return (
-      <View style={styles.centered}>
+      <ScrollView style={styles.container}>
         {renderHeader()}
-        <ActivityIndicator size="large" color="#667eea" style={{ marginTop: 40 }} />
-        <Text style={styles.loadingText}>Finding amazing events...</Text>
-      </View>
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </ScrollView>
     );
   }
 
@@ -404,9 +406,26 @@ export default function HomeScreen({ navigation }) {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Text style={styles.emptyEmoji}>🎭</Text>
             <Text style={styles.emptyText}>No events found</Text>
-            <Text style={styles.emptySubtext}>Try a different vibe or location</Text>
+            <Text style={styles.emptySubtext}>
+              {selectedVibe === 'free' 
+                ? "No free events in this area right now. Try expanding your search!"
+                : selectedDateFilter !== 'all'
+                ? "Nothing scheduled for this time. Try a different date range!"
+                : "Try a different location or category to discover more events."}
+            </Text>
+            <TouchableOpacity 
+              style={styles.emptyButton}
+              onPress={() => {
+                setSelectedVibe('all');
+                setSelectedDateFilter('all');
+                setSelectedLocation(null);
+                setLocationCoords(null);
+              }}
+            >
+              <Text style={styles.emptyButtonText}>Clear Filters</Text>
+            </TouchableOpacity>
           </View>
         }
         ListFooterComponent={
@@ -415,7 +434,14 @@ export default function HomeScreen({ navigation }) {
           ) : null
         }
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            tintColor="#667eea"
+            colors={['#667eea']}
+            title="Pull to refresh"
+            titleColor="#888"
+          />
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
@@ -664,6 +690,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    lineHeight: 20,
+  },
+  emptyButton: {
+    marginTop: 20,
+    backgroundColor: '#667eea',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   footerLoader: {
     paddingVertical: 20,
