@@ -5,11 +5,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import HomeScreen from './src/screens/HomeScreen';
 import EventDetailScreen from './src/screens/EventDetailScreen';
+import { FavoritesProvider } from './src/context/FavoritesContext';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
+    <FavoritesProvider>
     <NavigationContainer>
       <StatusBar style="dark" />
       <Stack.Navigator 
@@ -28,5 +30,6 @@ export default function App() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+    </FavoritesProvider>
   );
 }

@@ -29,6 +29,16 @@ const VIBES = [
   { id: 'family', name: 'Family', emoji: '👨‍👩‍👧' },
 ];
 
+// Date range filters
+const DATE_FILTERS = [
+  { id: 'all', name: 'Any Date', emoji: '📅' },
+  { id: 'today', name: 'Today', emoji: '🌟' },
+  { id: 'tomorrow', name: 'Tomorrow', emoji: '☀️' },
+  { id: 'weekend', name: 'This Weekend', emoji: '🎉' },
+  { id: 'week', name: 'This Week', emoji: '📆' },
+  { id: 'month', name: 'This Month', emoji: '🗓️' },
+];
+
 // Cities with coordinates for radius-based search
 const LOCATIONS = [
   { name: '📍 All Locations', value: null },
@@ -67,6 +77,7 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedVibe, setSelectedVibe] = useState('all');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationCoords, setLocationCoords] = useState(null);
   const [page, setPage] = useState(1);
@@ -126,6 +137,40 @@ export default function HomeScreen({ navigation }) {
         params.search = searchQuery.trim();
       }
 
+      // Add date filter
+      if (selectedDateFilter !== 'all') {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        switch (selectedDateFilter) {
+          case 'today':
+            params.start_date = today.toISOString();
+            params.end_date = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
+            break;
+          case 'tomorrow':
+            const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+            params.start_date = tomorrow.toISOString();
+            params.end_date = new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000).toISOString();
+            break;
+          case 'weekend':
+            const dayOfWeek = now.getDay();
+            const daysUntilSaturday = (6 - dayOfWeek + 7) % 7 || 7;
+            const saturday = new Date(today.getTime() + daysUntilSaturday * 24 * 60 * 60 * 1000);
+            const monday = new Date(saturday.getTime() + 2 * 24 * 60 * 60 * 1000);
+            params.start_date = dayOfWeek === 0 || dayOfWeek === 6 ? today.toISOString() : saturday.toISOString();
+            params.end_date = monday.toISOString();
+            break;
+          case 'week':
+            params.start_date = today.toISOString();
+            params.end_date = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+            break;
+          case 'month':
+            params.start_date = today.toISOString();
+            params.end_date = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            break;
+        }
+      }
+
       const data = await fetchEvents(params);
       
       if (reset) {
@@ -139,7 +184,7 @@ export default function HomeScreen({ navigation }) {
     } catch (error) {
       console.error('Failed to load events:', error);
     }
-  }, [page, selectedVibe, locationCoords, searchQuery]);
+  }, [page, selectedVibe, locationCoords, searchQuery, selectedDateFilter]);
 
   // Handle location selection
   const handleLocationSelect = async (location) => {
@@ -170,7 +215,7 @@ export default function HomeScreen({ navigation }) {
       loadEvents(true),
       loadFreeEvents()
     ]).finally(() => setLoading(false));
-  }, [selectedVibe, locationCoords]);
+  }, [selectedVibe, locationCoords, selectedDateFilter]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -291,6 +336,32 @@ export default function HomeScreen({ navigation }) {
               selectedVibe === vibe.id && styles.vibeChipTextSelected
             ]}>
               {vibe.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Date Filters */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.dateScroll}
+      >
+        {DATE_FILTERS.map(df => (
+          <TouchableOpacity
+            key={df.id}
+            style={[
+              styles.dateChip,
+              selectedDateFilter === df.id && styles.dateChipSelected
+            ]}
+            onPress={() => setSelectedDateFilter(df.id)}
+          >
+            <Text style={styles.dateEmoji}>{df.emoji}</Text>
+            <Text style={[
+              styles.dateChipText,
+              selectedDateFilter === df.id && styles.dateChipTextSelected
+            ]}>
+              {df.name}
             </Text>
           </TouchableOpacity>
         ))}
@@ -442,6 +513,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   vibeChipTextSelected: {
+    color: '#fff',
+  },
+  // Date Filters
+  dateScroll: {
+    paddingHorizontal: 12,
+    marginBottom: 16,
+  },
+  dateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#f5f5f5',
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  dateChipSelected: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
+  },
+  dateEmoji: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  dateChipText: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+  },
+  dateChipTextSelected: {
     color: '#fff',
   },
   // Spotlight Section

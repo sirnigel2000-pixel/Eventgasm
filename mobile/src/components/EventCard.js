@@ -8,10 +8,14 @@ import {
   Dimensions 
 } from 'react-native';
 import { formatEventDate, formatDateRange, formatDistance } from '../utils/formatters';
+import { useFavorites } from '../context/FavoritesContext';
 
 const { width } = Dimensions.get('window');
 
 export default function EventCard({ event, onPress }) {
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const favorited = isFavorite(event.id);
+  
   // Only show FREE badge if explicitly marked free (not just null price)
   const isFree = event.isFree === true;
   const hasPrice = event.price?.min != null || event.price?.max != null;
@@ -56,6 +60,18 @@ export default function EventCard({ event, onPress }) {
             <Text style={styles.localBadgeText}>LOCAL</Text>
           </View>
         )}
+
+        {/* Favorite Heart Button */}
+        <TouchableOpacity 
+          style={styles.heartButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            toggleFavorite(event);
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.heartIcon}>{favorited ? '❤️' : '🤍'}</Text>
+        </TouchableOpacity>
       </View>
       
       <View style={styles.content}>
@@ -79,9 +95,17 @@ export default function EventCard({ event, onPress }) {
         </Text>
         
         <View style={styles.footer}>
-          <Text style={styles.venue} numberOfLines={1}>
-            📍 {event.venue?.name || 'Venue TBA'}
-          </Text>
+          <View style={styles.footerTop}>
+            <Text style={styles.venue} numberOfLines={1}>
+              {'📍 '}{event.venue?.name || 'Venue TBA'}
+            </Text>
+            {/* Price Display */}
+            {!isFree && event.price?.min != null && (
+              <Text style={styles.priceTag}>
+                From ${Math.round(event.price.min)}
+              </Text>
+            )}
+          </View>
           {event.venue?.city && (
             <Text style={styles.location}>
               {event.venue.city}, {event.venue.state}
@@ -164,6 +188,25 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  heartButton: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  heartIcon: {
+    fontSize: 18,
+  },
   content: {
     padding: 16,
   },
@@ -206,10 +249,22 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
     paddingTop: 12,
   },
+  footerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   venue: {
     fontSize: 14,
     color: '#444',
     marginBottom: 2,
+    flex: 1,
+  },
+  priceTag: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#667eea',
+    marginLeft: 8,
   },
   location: {
     fontSize: 13,

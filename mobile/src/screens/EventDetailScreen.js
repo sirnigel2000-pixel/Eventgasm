@@ -8,8 +8,11 @@ import {
   TouchableOpacity,
   Linking,
   Share,
-  Dimensions
+  Dimensions,
+  Alert,
+  Platform
 } from 'react-native';
+import * as Calendar from 'expo-calendar';
 import { formatEventDate, formatShowtime } from '../utils/formatters';
 
 const { width } = Dimensions.get('window');
@@ -50,6 +53,50 @@ export default function EventDetailScreen({ route, navigation }) {
     }
   };
 
+  const handleAddToCalendar = async () => {
+    try {
+      // Request calendar permissions
+      const { status } = await Calendar.requestCalendarPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow calendar access to add events.');
+        return;
+      }
+
+      // Get the default calendar
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const defaultCalendar = calendars.find(
+        cal => cal.allowsModifications && cal.source?.name === 'Default'
+      ) || calendars.find(cal => cal.allowsModifications) || calendars[0];
+
+      if (!defaultCalendar) {
+        Alert.alert('No calendar found', 'Unable to find a calendar to add the event to.');
+        return;
+      }
+
+      // Get event timing
+      const startTime = selectedShowtime?.start || event.timing?.start;
+      const endTime = selectedShowtime?.end || event.timing?.end;
+      
+      const startDate = startTime ? new Date(startTime) : new Date();
+      const endDate = endTime ? new Date(endTime) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
+
+      // Create the event
+      const eventId = await Calendar.createEventAsync(defaultCalendar.id, {
+        title: event.title,
+        startDate,
+        endDate,
+        location: event.venue ? `${event.venue.name}, ${event.venue.address || ''}, ${event.venue.city || ''}, ${event.venue.state || ''}` : undefined,
+        notes: `${event.description || ''}\n\nTickets: ${event.ticketUrl || event.shareUrl || ''}`,
+        url: event.ticketUrl || event.shareUrl,
+      });
+
+      Alert.alert('Added to Calendar! 📅', `${event.title} has been added to your calendar.`);
+    } catch (error) {
+      console.error('Calendar error:', error);
+      Alert.alert('Error', 'Unable to add event to calendar. Please try again.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scroll} bounces={false}>
@@ -70,6 +117,13 @@ export default function EventDetailScreen({ route, navigation }) {
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.backText}>←</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.calendarButton}
+          onPress={handleAddToCalendar}
+        >
+          <Text style={styles.calendarText}>📅</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -257,6 +311,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 24,
     fontWeight: '600',
+  },
+  calendarButton: {
+    position: 'absolute',
+    top: 50,
+    right: 64,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarText: {
+    fontSize: 18,
   },
   shareButton: {
     position: 'absolute',
