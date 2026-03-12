@@ -14,15 +14,34 @@ import {
 } from 'react-native';
 import * as Calendar from 'expo-calendar';
 import { formatEventDate, formatShowtime } from '../utils/formatters';
+import { useFavorites } from '../context/FavoritesContext';
+import { scheduleEventReminder } from '../services/notifications';
 
 const { width } = Dimensions.get('window');
 
 export default function EventDetailScreen({ route, navigation }) {
   const { event } = route.params;
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const favorited = isFavorite(event.id);
   const hasMultipleShowtimes = event.showtimes && event.showtimes.length > 1;
   const [selectedShowtime, setSelectedShowtime] = useState(
     hasMultipleShowtimes ? null : (event.showtimes?.[0] || { ticketUrl: event.ticketUrl })
   );
+  const [reminderSet, setReminderSet] = useState(false);
+
+  const handleSetReminder = async () => {
+    try {
+      const notificationId = await scheduleEventReminder(event, 60);
+      if (notificationId) {
+        setReminderSet(true);
+        Alert.alert('Reminder Set! 🔔', "We'll notify you 1 hour before this event.");
+      } else {
+        Alert.alert('Reminder Not Set', 'The event may have already started or notifications are not enabled.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not set reminder. Please try again.');
+    }
+  };
 
   const handleBuyTickets = () => {
     const ticketUrl = selectedShowtime?.ticketUrl || event.ticketUrl;
@@ -131,6 +150,21 @@ export default function EventDetailScreen({ route, navigation }) {
           onPress={handleShare}
         >
           <Text style={styles.shareText}>↗</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.favoriteButton}
+          onPress={() => toggleFavorite(event)}
+        >
+          <Text style={styles.favoriteText}>{favorited ? '❤️' : '🤍'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.reminderButton, reminderSet && styles.reminderButtonSet]}
+          onPress={handleSetReminder}
+          disabled={reminderSet}
+        >
+          <Text style={styles.reminderText}>{reminderSet ? '✓' : '🔔'}</Text>
         </TouchableOpacity>
 
         <View style={styles.content}>
@@ -341,6 +375,38 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontWeight: '600',
+  },
+  favoriteButton: {
+    position: 'absolute',
+    top: 50,
+    right: 112,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  favoriteText: {
+    fontSize: 18,
+  },
+  reminderButton: {
+    position: 'absolute',
+    top: 50,
+    right: 160,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reminderButtonSet: {
+    backgroundColor: 'rgba(76, 175, 80, 0.8)',
+  },
+  reminderText: {
+    fontSize: 18,
+    color: '#fff',
   },
   content: {
     padding: 20,
