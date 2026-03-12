@@ -50,6 +50,32 @@ try {
   console.log('[SyncManager] Eventbrite Scraper module not available');
 }
 
+let craigslist, residentAdvisor, universityEvents, cityGov;
+
+try {
+  craigslist = require('./craigslist');
+} catch (e) {
+  console.log('[SyncManager] Craigslist module not available');
+}
+
+try {
+  residentAdvisor = require('./residentAdvisor');
+} catch (e) {
+  console.log('[SyncManager] Resident Advisor module not available');
+}
+
+try {
+  universityEvents = require('./universityEvents');
+} catch (e) {
+  console.log('[SyncManager] University Events module not available');
+}
+
+try {
+  cityGov = require('./cityGov');
+} catch (e) {
+  console.log('[SyncManager] City Gov module not available');
+}
+
 // Track sync status
 let isSyncing = false;
 let lastSyncTime = null;
@@ -88,6 +114,10 @@ async function runFullSync() {
     meetup: 0,
     community: 0,
     eventbrite: 0,
+    craigslist: 0,
+    residentAdvisor: 0,
+    university: 0,
+    cityGov: 0,
     errors: []
   };
 
@@ -204,6 +234,54 @@ async function runFullSync() {
       }
     }
 
+    // Craigslist (hyperlocal community events)
+    if (craigslist) {
+      console.log('[SyncManager] Syncing Craigslist...');
+      try {
+        stats.craigslist = await craigslist.syncAll();
+        await logSync('craigslist', 'US', stats.craigslist, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Craigslist: ${err.message}`);
+        await logSync('craigslist', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // Resident Advisor (electronic music / nightlife)
+    if (residentAdvisor) {
+      console.log('[SyncManager] Syncing Resident Advisor...');
+      try {
+        stats.residentAdvisor = await residentAdvisor.syncAll();
+        await logSync('residentadvisor', 'US', stats.residentAdvisor, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Resident Advisor: ${err.message}`);
+        await logSync('residentadvisor', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // University Events (campus events, lectures, concerts)
+    if (universityEvents) {
+      console.log('[SyncManager] Syncing University Events...');
+      try {
+        stats.university = await universityEvents.syncAll();
+        await logSync('university', 'US', stats.university, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`University: ${err.message}`);
+        await logSync('university', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // City Government Calendars (official city events)
+    if (cityGov) {
+      console.log('[SyncManager] Syncing City Government Events...');
+      try {
+        stats.cityGov = await cityGov.syncAll();
+        await logSync('citygov', 'US', stats.cityGov, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`CityGov: ${err.message}`);
+        await logSync('citygov', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
   } catch (error) {
     console.error('[SyncManager] Fatal sync error:', error);
     stats.errors.push(`Fatal: ${error.message}`);
@@ -219,7 +297,8 @@ async function runFullSync() {
 
   const duration = Math.round((Date.now() - startTime) / 1000);
   const total = stats.ticketmaster + stats.seatgeek + stats.allevents + stats.bandsintown + 
-                stats.library + stats.parks + stats.meetup + stats.community + stats.eventbrite;
+                stats.library + stats.parks + stats.meetup + stats.community + stats.eventbrite +
+                stats.craigslist + stats.residentAdvisor + stats.university + stats.cityGov;
   
   console.log(`[SyncManager] Sync complete in ${duration}s`);
   console.log(`  - Ticketmaster: ${stats.ticketmaster}`);
@@ -231,6 +310,10 @@ async function runFullSync() {
   console.log(`  - Meetup: ${stats.meetup}`);
   console.log(`  - Community: ${stats.community}`);
   console.log(`  - Eventbrite: ${stats.eventbrite}`);
+  console.log(`  - Craigslist: ${stats.craigslist}`);
+  console.log(`  - Resident Advisor: ${stats.residentAdvisor}`);
+  console.log(`  - University: ${stats.university}`);
+  console.log(`  - City Gov: ${stats.cityGov}`);
   console.log(`  - Total: ${total}`);
   if (stats.errors.length) {
     console.log(`  - Errors: ${stats.errors.join('; ')}`);
