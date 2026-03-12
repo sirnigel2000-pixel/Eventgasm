@@ -1,6 +1,6 @@
-const axios = require('axios');
 const cheerio = require('cheerio');
 const Event = require('../models/Event');
+const { resilientFetch, isBlocked, sleep } = require('../utils/resilientScraper');
 
 // Craigslist city subdomains
 const CITIES = [
@@ -30,13 +30,20 @@ async function scrapeCity(subdomain, cityName, state) {
   const url = `https://${subdomain}.craigslist.org/search/eve`;
   const events = [];
 
+  // Check if domain is blocked (rate limited)
+  if (isBlocked(url)) {
+    console.log(`[Craigslist] ${subdomain} in cooldown, skipping`);
+    return events;
+  }
+
   try {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      },
-      timeout: 15000
-    });
+    // Use resilient fetch with auto-retry and block detection
+    const response = await resilientFetch(url, { timeout: 15000 });
+    
+    if (!response || !response.data) {
+      console.log(`[Craigslist] No data for ${subdomain}`);
+      return events;
+    }
 
     const $ = cheerio.load(response.data);
 

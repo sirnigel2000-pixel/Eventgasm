@@ -1,6 +1,6 @@
-const axios = require('axios');
 const cheerio = require('cheerio');
 const Event = require('../models/Event');
+const { resilientFetch, isBlocked, sleep } = require('../utils/resilientScraper');
 
 const BASE_URL = 'https://www.eventbrite.com';
 
@@ -30,15 +30,19 @@ async function scrapeCity(city, state) {
   for (const cat of CATEGORIES) {
     const url = `${BASE_URL}/d/${stateSlug}--${citySlug}/${cat.slug}/`;
     
+    // Skip if domain is blocked
+    if (isBlocked(url)) {
+      console.log(`[Eventbrite] Domain in cooldown, skipping ${cat.slug}`);
+      continue;
+    }
+    
     try {
-      const response = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        timeout: 15000
-      });
+      // Use resilient fetch with auto-retry and block detection
+      const response = await resilientFetch(url, { timeout: 15000 });
+      
+      if (!response || !response.data) {
+        continue;
+      }
 
       const $ = cheerio.load(response.data);
 
