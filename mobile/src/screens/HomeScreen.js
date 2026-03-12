@@ -18,6 +18,7 @@ import SearchBar from '../components/SearchBar';
 import SkeletonCard from '../components/SkeletonCard';
 import { getRecommendedEvents, getTopCategories } from '../services/recommendations';
 import { useAuth } from '../context/AuthContext';
+import haptics from '../utils/haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -453,7 +454,10 @@ export default function HomeScreen({ navigation }) {
               selectedVibe === vibe.id && styles.vibeChipSelected,
               vibe.id === 'free' && styles.vibeChipFree
             ]}
-            onPress={() => setSelectedVibe(vibe.id)}
+            onPress={() => {
+              haptics.selection();
+              setSelectedVibe(vibe.id);
+            }}
           >
             <Text style={styles.vibeEmoji}>{vibe.emoji}</Text>
             <Text style={[
@@ -479,7 +483,10 @@ export default function HomeScreen({ navigation }) {
               styles.dateChip,
               selectedDateFilter === df.id && styles.dateChipSelected
             ]}
-            onPress={() => setSelectedDateFilter(df.id)}
+            onPress={() => {
+              haptics.selection();
+              setSelectedDateFilter(df.id);
+            }}
           >
             <Text style={styles.dateEmoji}>{df.emoji}</Text>
             <Text style={[

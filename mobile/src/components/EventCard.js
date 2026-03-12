@@ -9,6 +9,7 @@ import {
 import { Image } from 'expo-image'; // Fast cached images
 import { formatEventDate, formatDateRange, formatDistance } from '../utils/formatters';
 import { useFavorites } from '../context/FavoritesContext';
+import haptics from '../utils/haptics';
 
 // Blurhash placeholder for loading state
 const PLACEHOLDER_BLUR = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
@@ -72,6 +73,7 @@ function EventCard({ event, onPress }) {
           style={styles.heartButton}
           onPress={(e) => {
             e.stopPropagation();
+            haptics.success(); // Satisfying feedback on favorite
             toggleFavorite(event);
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

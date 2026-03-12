@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { cache, cacheKey } from './cache';
 
 const API_BASE = 'https://eventgasm.onrender.com/api';
 
@@ -8,11 +9,30 @@ const api = axios.create({
 });
 
 export async function fetchEvents(params = {}) {
+  const key = cacheKey(params);
+  
   try {
+    // Try network first
     const { data } = await api.get('/events', { params });
+    
+    // Cache successful response
+    await cache.set(key, data);
+    
     return data;
   } catch (error) {
     console.error('API Error:', error.message);
+    
+    // Try to serve from cache if offline
+    const cached = await cache.getStale(key);
+    if (cached) {
+      console.log('[API] Serving cached data (offline mode)');
+      return { 
+        ...cached.data, 
+        _cached: true,
+        _cacheAge: cached.age 
+      };
+    }
+    
     throw error;
   }
 }
