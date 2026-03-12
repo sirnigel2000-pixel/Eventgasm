@@ -89,11 +89,13 @@ router.get('/', async (req, res) => {
         category
       });
     } else if (lat && lng) {
-      // Geospatial search
+      // Geospatial search with smart radius expansion for rural areas
+      let searchRadius = parseInt(radius);
+      
       events = await Event.findNearby({
         latitude: parseFloat(lat),
         longitude: parseFloat(lng),
-        radiusMiles: parseInt(radius),
+        radiusMiles: searchRadius,
         limit: parseInt(limit),
         offset: parseInt(offset),
         category,
@@ -102,6 +104,37 @@ router.get('/', async (req, res) => {
         isFree: isFreeOnly,
         source
       });
+
+      // AUTO-EXPAND: If few results, expand radius for rural users
+      const MIN_RESULTS = 5;
+      const RADIUS_STEPS = [50, 100, 150]; // Miles to try
+      
+      for (const expandedRadius of RADIUS_STEPS) {
+        if (events.length >= MIN_RESULTS || searchRadius >= expandedRadius) break;
+        
+        console.log(`[SmartRadius] Only ${events.length} events at ${searchRadius}mi, expanding to ${expandedRadius}mi`);
+        searchRadius = expandedRadius;
+        
+        events = await Event.findNearby({
+          latitude: parseFloat(lat),
+          longitude: parseFloat(lng),
+          radiusMiles: searchRadius,
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          category,
+          startDate: start_date,
+          endDate: end_date,
+          isFree: isFreeOnly,
+          source
+        });
+      }
+
+      // Mark events with "worth the drive" if they're far
+      events = events.map(e => ({
+        ...e,
+        expandedRadius: searchRadius > parseInt(radius),
+        searchRadius: searchRadius
+      }));
     } else if (city || state) {
       // Location-based search
       events = await Event.findByLocation({

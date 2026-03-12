@@ -76,6 +76,13 @@ try {
   console.log('[SyncManager] City Gov module not available');
 }
 
+let ruralEvents;
+try {
+  ruralEvents = require('./ruralEvents');
+} catch (e) {
+  console.log('[SyncManager] Rural Events module not available');
+}
+
 // Track sync status
 let isSyncing = false;
 let lastSyncTime = null;
@@ -118,6 +125,7 @@ async function runFullSync() {
     residentAdvisor: 0,
     university: 0,
     cityGov: 0,
+    rural: 0,
     errors: []
   };
 
@@ -282,6 +290,18 @@ async function runFullSync() {
       }
     }
 
+    // Rural Events (state fairs, county fairs, agricultural)
+    if (ruralEvents) {
+      console.log('[SyncManager] Syncing Rural Events (state fairs, county fairs)...');
+      try {
+        stats.rural = await ruralEvents.syncAll();
+        await logSync('rural', 'US', stats.rural, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Rural: ${err.message}`);
+        await logSync('rural', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
   } catch (error) {
     console.error('[SyncManager] Fatal sync error:', error);
     stats.errors.push(`Fatal: ${error.message}`);
@@ -298,7 +318,7 @@ async function runFullSync() {
   const duration = Math.round((Date.now() - startTime) / 1000);
   const total = stats.ticketmaster + stats.seatgeek + stats.allevents + stats.bandsintown + 
                 stats.library + stats.parks + stats.meetup + stats.community + stats.eventbrite +
-                stats.craigslist + stats.residentAdvisor + stats.university + stats.cityGov;
+                stats.craigslist + stats.residentAdvisor + stats.university + stats.cityGov + stats.rural;
   
   console.log(`[SyncManager] Sync complete in ${duration}s`);
   console.log(`  - Ticketmaster: ${stats.ticketmaster}`);
@@ -314,6 +334,7 @@ async function runFullSync() {
   console.log(`  - Resident Advisor: ${stats.residentAdvisor}`);
   console.log(`  - University: ${stats.university}`);
   console.log(`  - City Gov: ${stats.cityGov}`);
+  console.log(`  - Rural/Fairs: ${stats.rural}`);
   console.log(`  - Total: ${total}`);
   if (stats.errors.length) {
     console.log(`  - Errors: ${stats.errors.join('; ')}`);
