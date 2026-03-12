@@ -15,6 +15,7 @@ import { fetchEvents } from '../services/api';
 import EventCard from '../components/EventCard';
 import SearchBar from '../components/SearchBar';
 import SkeletonCard from '../components/SkeletonCard';
+import { getRecommendedEvents, getTopCategories } from '../services/recommendations';
 
 const { width } = Dimensions.get('window');
 
@@ -85,6 +86,8 @@ export default function HomeScreen({ navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFreeSection, setShowFreeSection] = useState(true);
+  const [recommendedEvents, setRecommendedEvents] = useState([]);
+  const [userTopCategories, setUserTopCategories] = useState([]);
 
   // Load free events for the spotlight section
   const loadFreeEvents = useCallback(async () => {
@@ -97,6 +100,24 @@ export default function HomeScreen({ navigation }) {
       setFreeEvents(data.events || []);
     } catch (error) {
       console.error('Failed to load free events:', error);
+    }
+  }, []);
+
+  const loadRecommendedEvents = useCallback(async () => {
+    try {
+      // Get a broad set of events to filter
+      const data = await fetchEvents({ limit: 50 });
+      const allEvents = data.events || [];
+      
+      // Get personalized recommendations
+      const recommended = await getRecommendedEvents(allEvents, 8);
+      setRecommendedEvents(recommended);
+      
+      // Get user's top categories for display
+      const topCats = await getTopCategories(3);
+      setUserTopCategories(topCats);
+    } catch (error) {
+      console.error('Failed to load recommendations:', error);
     }
   }, []);
 
@@ -214,15 +235,16 @@ export default function HomeScreen({ navigation }) {
     setPage(1);
     Promise.all([
       loadEvents(true),
-      loadFreeEvents()
+      loadFreeEvents(),
+      loadRecommendedEvents()
     ]).finally(() => setLoading(false));
   }, [selectedVibe, locationCoords, selectedDateFilter]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadEvents(true), loadFreeEvents()]);
+    await Promise.all([loadEvents(true), loadFreeEvents(), loadRecommendedEvents()]);
     setRefreshing(false);
-  }, [loadEvents, loadFreeEvents]);
+  }, [loadEvents, loadFreeEvents, loadRecommendedEvents]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -243,6 +265,56 @@ export default function HomeScreen({ navigation }) {
   };
 
   // Free Events Spotlight Section
+  const renderForYou = () => {
+    if (recommendedEvents.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.forYouSection}>
+        <View style={styles.spotlightHeader}>
+          <View>
+            <Text style={styles.spotlightTitle}>✨ For You</Text>
+            {userTopCategories.length > 0 && (
+              <Text style={styles.forYouSubtitle}>
+                Based on your love of {userTopCategories.slice(0, 2).join(' & ')}
+              </Text>
+            )}
+          </View>
+        </View>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.spotlightScroll}
+        >
+          {recommendedEvents.map((event) => (
+            <TouchableOpacity 
+              key={event.id} 
+              style={styles.forYouCard}
+              onPress={() => handleEventPress(event)}
+            >
+              {event.image && (
+                <Image 
+                  source={{ uri: event.image }} 
+                  style={styles.forYouImage}
+                />
+              )}
+              <View style={styles.forYouContent}>
+                <Text style={styles.forYouCategory}>{event.category}</Text>
+                <Text style={styles.forYouTitle} numberOfLines={2}>
+                  {event.title}
+                </Text>
+                <Text style={styles.forYouMeta}>
+                  {event.isFree ? '🆓 Free' : event.price?.min ? `From $${Math.round(event.price.min)}` : ''}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderFreeSpotlight = () => {
     if (!showFreeSection || freeEvents.length === 0 || selectedVibe === 'free') {
       return null;
@@ -378,6 +450,9 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* For You Section */}
+      {renderForYou()}
 
       {/* Free Events Spotlight */}
       {renderFreeSpotlight()}
@@ -605,6 +680,56 @@ const styles = StyleSheet.create({
   },
   dateChipTextSelected: {
     color: '#fff',
+  },
+  // For You Section
+  forYouSection: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  forYouSubtitle: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  forYouCard: {
+    width: 180,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginHorizontal: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  forYouImage: {
+    width: '100%',
+    height: 100,
+    backgroundColor: '#f0f0f0',
+  },
+  forYouContent: {
+    padding: 10,
+  },
+  forYouCategory: {
+    fontSize: 10,
+    color: '#667eea',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  forYouTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 4,
+    lineHeight: 17,
+  },
+  forYouMeta: {
+    fontSize: 11,
+    color: '#888',
   },
   // Spotlight Section
   spotlightSection: {

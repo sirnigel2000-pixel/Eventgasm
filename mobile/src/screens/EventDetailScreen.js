@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -16,6 +16,7 @@ import * as Calendar from 'expo-calendar';
 import { formatEventDate, formatShowtime } from '../utils/formatters';
 import { useFavorites } from '../context/FavoritesContext';
 import { scheduleEventReminder } from '../services/notifications';
+import { recordEventView, recordFavorite } from '../services/recommendations';
 
 const { width } = Dimensions.get('window');
 
@@ -28,6 +29,19 @@ export default function EventDetailScreen({ route, navigation }) {
     hasMultipleShowtimes ? null : (event.showtimes?.[0] || { ticketUrl: event.ticketUrl })
   );
   const [reminderSet, setReminderSet] = useState(false);
+
+  // Track event view for recommendations
+  useEffect(() => {
+    recordEventView(event);
+  }, [event.id]);
+
+  const handleToggleFavorite = () => {
+    toggleFavorite(event);
+    if (!favorited) {
+      // Record as favorite for stronger signal
+      recordFavorite(event);
+    }
+  };
 
   const handleSetReminder = async () => {
     try {
@@ -154,7 +168,7 @@ export default function EventDetailScreen({ route, navigation }) {
 
         <TouchableOpacity 
           style={styles.favoriteButton}
-          onPress={() => toggleFavorite(event)}
+          onPress={handleToggleFavorite}
         >
           <Text style={styles.favoriteText}>{favorited ? '❤️' : '🤍'}</Text>
         </TouchableOpacity>
