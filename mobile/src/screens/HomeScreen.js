@@ -150,10 +150,12 @@ export default function HomeScreen({ navigation }) {
         const vibeToCategory = {
           'music': 'Music',
           'food': 'Food & Drink',
+          'cultural': 'Cultural',
+          'festivals': 'Festivals',
           'sports': 'Sports',
           'arts': 'Arts & Theatre',
           'comedy': 'Comedy',
-          'family': 'Family',
+          'family': 'Family & Kids',
         };
         if (vibeToCategory[selectedVibe]) {
           params.category = vibeToCategory[selectedVibe];
@@ -243,7 +245,7 @@ export default function HomeScreen({ navigation }) {
       loadFreeEvents(),
       loadRecommendedEvents()
     ]).finally(() => setLoading(false));
-  }, [selectedVibe, locationCoords, selectedDateFilter]);
+  }, [selectedVibe, locationCoords, selectedDateFilter, searchQuery]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
