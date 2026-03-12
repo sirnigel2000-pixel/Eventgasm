@@ -25,6 +25,8 @@ const VIBES = [
   { id: 'free', name: 'Free', emoji: '🆓' },
   { id: 'music', name: 'Music', emoji: '🎵' },
   { id: 'food', name: 'Food & Drink', emoji: '🍻' },
+  { id: 'cultural', name: 'Cultural', emoji: '🌍' },
+  { id: 'festivals', name: 'Festivals', emoji: '🎪' },
   { id: 'sports', name: 'Sports', emoji: '⚽' },
   { id: 'arts', name: 'Arts', emoji: '🎨' },
   { id: 'comedy', name: 'Comedy', emoji: '😂' },

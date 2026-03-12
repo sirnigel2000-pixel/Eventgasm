@@ -17,6 +17,31 @@ const NICHE_CATEGORIES = [
   { slug: 'sports-fitness', category: 'Sports', name: 'Sports & Fitness' },
   { slug: 'education-training', category: 'Education', name: 'Education Events' },
   { slug: 'entertainment', category: 'Entertainment', name: 'Entertainment' },
+  // Cultural & Ethnic festivals
+  { slug: 'cultural', category: 'Cultural', name: 'Cultural Festivals' },
+  { slug: 'festivals', category: 'Festivals', name: 'Festivals & Fairs' },
+  { slug: 'heritage', category: 'Cultural', name: 'Heritage Events' },
+];
+
+// Cultural/ethnic event keywords to search for
+const CULTURAL_KEYWORDS = [
+  // General
+  'festival', 'celebration', 'heritage', 'cultural', 'ethnic', 'parade', 'carnival',
+  // European
+  'greek', 'italian', 'irish', 'german', 'oktoberfest', 'polish', 'ukrainian', 'russian',
+  'french', 'spanish', 'portuguese', 'scottish', 'celtic', 'nordic', 'scandinavian',
+  'latvian', 'lithuanian', 'croatian', 'serbian', 'hungarian', 'czech', 'dutch',
+  // Latin American
+  'mexican', 'cinco de mayo', 'dia de los muertos', 'puerto rican', 'cuban', 'dominican',
+  'brazilian', 'colombian', 'peruvian', 'argentinian', 'caribbean', 'latin',
+  // Asian
+  'chinese', 'lunar new year', 'japanese', 'korean', 'vietnamese', 'thai', 'indian',
+  'diwali', 'holi', 'filipino', 'pacific islander', 'hawaiian',
+  // African & Middle Eastern
+  'african', 'juneteenth', 'kwanzaa', 'caribbean', 'jamaican', 'haitian',
+  'middle eastern', 'persian', 'arab', 'israeli', 'turkish', 'armenian',
+  // Other
+  'native american', 'indigenous', 'pride', 'lgbtq', 'jewish', 'muslim', 'hindu', 'buddhist',
 ];
 
 async function scrapeCategory(categorySlug, city, state) {
@@ -65,6 +90,93 @@ async function scrapeCategory(categorySlug, city, state) {
     console.error(`Error scraping ${url}:`, error.message);
     return [];
   }
+}
+
+// Search AllEvents.in for cultural/ethnic events
+async function scrapeCulturalEvents(city, state) {
+  const events = [];
+  const citySlug = city.toLowerCase().replace(/\s+/g, '-');
+  
+  // AllEvents has good cultural event coverage
+  const culturalUrls = [
+    `https://allevents.in/${citySlug}/cultural`,
+    `https://allevents.in/${citySlug}/festivals`,
+    `https://allevents.in/${citySlug}/community`,
+  ];
+  
+  for (const url of culturalUrls) {
+    try {
+      const response = await axios.get(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EventgasmBot/1.0)' },
+        timeout: 15000
+      });
+      
+      const $ = cheerio.load(response.data);
+      
+      // Parse event listings
+      $('[class*="event"], .listing, .item').each((i, el) => {
+        const $el = $(el);
+        const title = $el.find('h2, h3, h4, .title, .name').first().text().trim();
+        const dateText = $el.find('.date, time, [class*="date"]').first().text().trim();
+        const venue = $el.find('.venue, .location, [class*="location"]').first().text().trim();
+        const link = $el.find('a').first().attr('href');
+        const image = $el.find('img').first().attr('src');
+        
+        // Check if it's a cultural event based on keywords
+        const titleLower = title.toLowerCase();
+        const isCultural = CULTURAL_KEYWORDS.some(kw => titleLower.includes(kw));
+        
+        if (title && title.length > 5 && (isCultural || url.includes('cultural') || url.includes('festivals'))) {
+          events.push({
+            title,
+            dateText,
+            venue,
+            link,
+            image,
+            category: 'Cultural',
+            subcategory: detectCulturalType(title)
+          });
+        }
+      });
+      
+      await new Promise(r => setTimeout(r, 1000));
+    } catch (err) {
+      // Source unavailable
+    }
+  }
+  
+  return events;
+}
+
+// Detect specific cultural type from event title
+function detectCulturalType(title) {
+  const lower = title.toLowerCase();
+  
+  if (lower.includes('greek')) return 'Greek Festival';
+  if (lower.includes('italian') || lower.includes('feast')) return 'Italian Festival';
+  if (lower.includes('irish') || lower.includes('celtic')) return 'Irish/Celtic';
+  if (lower.includes('german') || lower.includes('oktoberfest')) return 'German Festival';
+  if (lower.includes('polish')) return 'Polish Festival';
+  if (lower.includes('mexican') || lower.includes('cinco')) return 'Mexican Festival';
+  if (lower.includes('chinese') || lower.includes('lunar')) return 'Chinese/Lunar New Year';
+  if (lower.includes('indian') || lower.includes('diwali') || lower.includes('holi')) return 'Indian Festival';
+  if (lower.includes('japanese')) return 'Japanese Festival';
+  if (lower.includes('korean')) return 'Korean Festival';
+  if (lower.includes('african') || lower.includes('juneteenth')) return 'African Heritage';
+  if (lower.includes('caribbean') || lower.includes('jamaican')) return 'Caribbean Festival';
+  if (lower.includes('puerto rican') || lower.includes('boricua')) return 'Puerto Rican';
+  if (lower.includes('brazilian')) return 'Brazilian Festival';
+  if (lower.includes('jewish')) return 'Jewish Festival';
+  if (lower.includes('pride') || lower.includes('lgbtq')) return 'Pride Event';
+  if (lower.includes('native') || lower.includes('indigenous')) return 'Native American';
+  if (lower.includes('arab') || lower.includes('middle eastern')) return 'Middle Eastern';
+  if (lower.includes('vietnamese')) return 'Vietnamese Festival';
+  if (lower.includes('filipino')) return 'Filipino Festival';
+  if (lower.includes('heritage')) return 'Heritage Festival';
+  if (lower.includes('parade')) return 'Cultural Parade';
+  if (lower.includes('carnival')) return 'Carnival';
+  
+  return 'Cultural Festival';
 }
 
 // Scrape Eventful/ActiveNet remnants and community calendars
@@ -134,6 +246,7 @@ async function syncCity(city, state, coords) {
   
   let totalAdded = 0;
   
+  // Sync niche categories
   for (const cat of NICHE_CATEGORIES) {
     const events = await scrapeCategory(cat.slug, city, state);
     
@@ -175,6 +288,46 @@ async function syncCity(city, state, coords) {
     
     // Rate limiting between categories
     await new Promise(r => setTimeout(r, 2000));
+  }
+  
+  // Also fetch cultural/ethnic events specifically
+  console.log(`[Community] Fetching cultural events for ${city}...`);
+  const culturalEvents = await scrapeCulturalEvents(city, state);
+  
+  for (const raw of culturalEvents) {
+    try {
+      const startTime = parseDate(raw.dateText);
+      
+      const eventData = {
+        source: 'community',
+        source_id: `cult_${Buffer.from(raw.title + (raw.dateText || '')).toString('base64').substring(0, 20)}`,
+        title: raw.title,
+        description: null,
+        category: raw.category || 'Cultural',
+        subcategory: raw.subcategory || 'Cultural Festival',
+        
+        venue_name: raw.venue || null,
+        city: city,
+        state: state,
+        country: 'US',
+        latitude: coords?.lat || null,
+        longitude: coords?.lng || null,
+        
+        start_time: startTime,
+        image_url: raw.image,
+        ticket_url: raw.link,
+        is_free: raw.title.toLowerCase().includes('free'),
+        
+        raw_data: raw
+      };
+      
+      if (eventData.start_time) {
+        await Event.upsert(eventData);
+        totalAdded++;
+      }
+    } catch (err) {
+      // Skip problematic events
+    }
   }
   
   console.log(`[Community] ${city}, ${state}: ${totalAdded} events synced`);
