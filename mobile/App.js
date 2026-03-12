@@ -6,8 +6,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from './src/screens/HomeScreen';
 import EventDetailScreen from './src/screens/EventDetailScreen';
 import MapScreen from './src/screens/MapScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 import OnboardingScreen, { checkOnboardingComplete } from './src/screens/OnboardingScreen';
 import { FavoritesProvider } from './src/context/FavoritesContext';
+import { AuthProvider } from './src/context/AuthContext';
 import { addNotificationListeners, registerForPushNotifications } from './src/services/notifications';
 
 const Stack = createNativeStackNavigator();
@@ -71,6 +73,7 @@ export default function App() {
   }
 
   return (
+    <AuthProvider>
     <FavoritesProvider>
       <NavigationContainer ref={navigationRef}>
         <StatusBar style="dark" />
@@ -95,8 +98,16 @@ export default function App() {
               animation: 'slide_from_right',
             }}
           />
+          <Stack.Screen 
+            name="Profile" 
+            component={ProfileScreen}
+            options={{
+              animation: 'slide_from_right',
+            }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </FavoritesProvider>
+    </AuthProvider>
   );
 }

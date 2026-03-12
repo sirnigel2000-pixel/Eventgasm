@@ -8,6 +8,7 @@ const { pool, initializeDatabase } = require('./db');
 const Event = require('./models/Event');
 const eventsRouter = require('./routes/events');
 const adminRouter = require('./routes/admin');
+const usersRouter = require('./routes/users');
 const syncManager = require('./services/syncManager');
 
 const app = express();
@@ -24,6 +25,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // API Routes
 app.use('/api/events', eventsRouter);
+app.use('/api/users', usersRouter);
 app.use('/admin', adminRouter);
 
 // Health check

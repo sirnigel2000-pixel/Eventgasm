@@ -16,6 +16,7 @@ import EventCard from '../components/EventCard';
 import SearchBar from '../components/SearchBar';
 import SkeletonCard from '../components/SkeletonCard';
 import { getRecommendedEvents, getTopCategories } from '../services/recommendations';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -73,6 +74,7 @@ const LOCATIONS = [
 ];
 
 export default function HomeScreen({ navigation }) {
+  const { user, isSignedIn } = useAuth();
   const [events, setEvents] = useState([]);
   const [freeEvents, setFreeEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -362,13 +364,27 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.logo}>🎉 Eventgasm</Text>
           <Text style={styles.tagline}>Find the fun. Skip the search.</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.mapButton}
-          onPress={() => navigation.navigate('Map')}
-        >
-          <Text style={styles.mapButtonIcon}>🗺️</Text>
-          <Text style={styles.mapButtonText}>Map</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.mapButton}
+            onPress={() => navigation.navigate('Map')}
+          >
+            <Text style={styles.mapButtonIcon}>🗺️</Text>
+            <Text style={styles.mapButtonText}>Map</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            {isSignedIn ? (
+              <Text style={styles.profileAvatar}>
+                {user?.name?.charAt(0)?.toUpperCase() || '👤'}
+              </Text>
+            ) : (
+              <Text style={styles.profileIcon}>👤</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
       
       <SearchBar onSearch={setSearchQuery} initialValue={searchQuery} />
@@ -573,6 +589,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#667eea',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileIcon: {
+    fontSize: 18,
+  },
+  profileAvatar: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
   },
   logo: {
     fontSize: 32,
