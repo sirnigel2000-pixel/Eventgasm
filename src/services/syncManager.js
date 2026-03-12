@@ -45,9 +45,9 @@ try {
 }
 
 try {
-  eventbrite = require('./eventbrite');
+  eventbrite = require('./eventbriteScraper'); // Use scraper instead of API
 } catch (e) {
-  console.log('[SyncManager] Eventbrite module not available');
+  console.log('[SyncManager] Eventbrite Scraper module not available');
 }
 
 // Track sync status
@@ -192,9 +192,9 @@ async function runFullSync() {
       }
     }
 
-    // Eventbrite (beer festivals, craft shows, local events)
-    if (eventbrite && process.env.EVENTBRITE_API_KEY) {
-      console.log('[SyncManager] Syncing Eventbrite...');
+    // Eventbrite (beer festivals, craft shows, local events) - via scraper
+    if (eventbrite) {
+      console.log('[SyncManager] Syncing Eventbrite (scraper)...');
       try {
         stats.eventbrite = await eventbrite.syncMajorCities();
         await logSync('eventbrite', 'US', stats.eventbrite, 0, 'success');
