@@ -148,4 +148,7 @@ async function syncAll() {
   return totalAdded;
 }
 
-module.exports = { syncAll, scrapeCityCategory, CITIES, CATEGORIES };
+// Alias for sync manager compatibility
+const syncMajorCities = syncAll;
+
+module.exports = { syncAll, syncMajorCities, scrapeCityCategory, CITIES, CATEGORIES };
