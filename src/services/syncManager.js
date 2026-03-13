@@ -53,6 +53,7 @@ try {
 let craigslist, residentAdvisor, universityEvents, cityGov;
 let sportsScraper;
 let cityDataScraper;
+let festivalScraper;
 
 try {
   craigslist = require('./craigslist');
@@ -62,6 +63,12 @@ try {
 
 try {
   cityDataScraper = require('./cityDataScraper');
+
+try {
+  festivalScraper = require('./festivalScraper');
+} catch (e) {
+  console.log('[SyncManager] Festival Scraper module not available');
+}
 } catch (e) {
   console.log('[SyncManager] CityData Scraper module not available');
 }
@@ -337,6 +344,18 @@ async function runFullSync() {
       } catch (err) {
         stats.errors.push(`CityData: ${err.message}`);
         await logSync('citydata', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // Festivals & Fairs (State fairs, music festivals)
+    if (festivalScraper) {
+      console.log('[SyncManager] Syncing Festivals & Fairs...');
+      try {
+        stats.festivals = await festivalScraper.syncAll();
+        await logSync('festivals', 'US', stats.festivals, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Festivals: ${err.message}`);
+        await logSync('festivals', 'US', 0, 0, 'error', err.message);
       }
     }
 
