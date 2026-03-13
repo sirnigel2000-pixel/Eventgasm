@@ -1,137 +1,154 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
 const Event = require('../models/Event');
 
-// Resident Advisor regions (electronic music/nightlife)
-const REGIONS = [
-  { slug: 'us/newyork', city: 'New York', state: 'NY' },
-  { slug: 'us/losangeles', city: 'Los Angeles', state: 'CA' },
-  { slug: 'us/chicago', city: 'Chicago', state: 'IL' },
-  { slug: 'us/sanfrancisco', city: 'San Francisco', state: 'CA' },
-  { slug: 'us/miami', city: 'Miami', state: 'FL' },
-  { slug: 'us/detroit', city: 'Detroit', state: 'MI' },
-  { slug: 'us/seattle', city: 'Seattle', state: 'WA' },
-  { slug: 'us/denver', city: 'Denver', state: 'CO' },
-  { slug: 'us/austin', city: 'Austin', state: 'TX' },
-  { slug: 'us/portland', city: 'Portland', state: 'OR' },
-  { slug: 'us/atlanta', city: 'Atlanta', state: 'GA' },
-  { slug: 'us/boston', city: 'Boston', state: 'MA' },
-  { slug: 'us/lasvegas', city: 'Las Vegas', state: 'NV' },
-  { slug: 'us/neworleans', city: 'New Orleans', state: 'LA' },
-  { slug: 'us/philadelphia', city: 'Philadelphia', state: 'PA' },
-  { slug: 'us/washingtondc', city: 'Washington', state: 'DC' },
+const GRAPHQL_URL = 'https://ra.co/graphql';
+
+// US Area IDs for RA
+const US_AREAS = [
+  { id: 8, city: 'New York', state: 'NY' },
+  { id: 17, city: 'Los Angeles', state: 'CA' },
+  { id: 218, city: 'Miami', state: 'FL' },
+  { id: 38, city: 'Chicago', state: 'IL' },
+  { id: 23, city: 'San Francisco', state: 'CA' },
+  { id: 62, city: 'Detroit', state: 'MI' },
+  { id: 88, city: 'Seattle', state: 'WA' },
+  { id: 67, city: 'Denver', state: 'CO' },
+  { id: 19, city: 'Austin', state: 'TX' },
+  { id: 92, city: 'Portland', state: 'OR' },
+  { id: 15, city: 'Atlanta', state: 'GA' },
+  { id: 51, city: 'Boston', state: 'MA' },
+  { id: 75, city: 'Las Vegas', state: 'NV' },
+  { id: 68, city: 'New Orleans', state: 'LA' },
+  { id: 47, city: 'Philadelphia', state: 'PA' },
+  { id: 9, city: 'Washington', state: 'DC' },
+  { id: 26, city: 'Dallas', state: 'TX' },
+  { id: 104, city: 'Nashville', state: 'TN' },
+  { id: 179, city: 'Phoenix', state: 'AZ' },
+  { id: 24, city: 'San Diego', state: 'CA' },
 ];
 
-async function scrapeRegion(slug, cityName, state) {
-  const url = `https://ra.co/events/${slug}`;
-  const events = [];
+const QUERY = `
+  query GetEvents($type: EventQueryType!, $areaId: ID!, $limit: Int) {
+    events(type: $type, areaId: $areaId, limit: $limit) {
+      id
+      title
+      date
+      startTime
+      endTime
+      cost
+      content
+      minimumAge
+      images {
+        filename
+      }
+      venue {
+        id
+        name
+        address
+        area {
+          name
+        }
+      }
+      pick {
+        blurb
+      }
+    }
+  }
+`;
 
+async function fetchEvents(areaId, type = 'TODAY', limit = 100) {
   try {
-    const response = await axios.get(url, {
+    const response = await axios.post(GRAPHQL_URL, {
+      query: QUERY,
+      variables: { type, areaId, limit }
+    }, {
       headers: {
+        'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        'Accept': 'text/html',
+        'Accept': 'application/json',
       },
       timeout: 15000
     });
 
-    const $ = cheerio.load(response.data);
-
-    // RA event listings
-    $('[data-testid="event-listing"], .event-listing, article').each((i, el) => {
-      try {
-        const $el = $(el);
-        const title = $el.find('h3, .event-title, [data-testid="event-title"]').text().trim();
-        const venue = $el.find('.venue, [data-testid="venue-name"]').text().trim();
-        const dateText = $el.find('time, .date').attr('datetime') || $el.find('time').text().trim();
-        const link = $el.find('a').first().attr('href');
-        const image = $el.find('img').first().attr('src');
-
-        if (title) {
-          events.push({
-            title,
-            venue: venue || 'TBA',
-            dateText,
-            link: link ? (link.startsWith('http') ? link : `https://ra.co${link}`) : null,
-            image,
-            city: cityName,
-            state
-          });
-        }
-      } catch (err) {}
-    });
-
-  } catch (error) {
-    if (error.response?.status !== 404) {
-      console.error(`[RA] Error scraping ${slug}:`, error.message);
-    }
+    return response.data?.data?.events || [];
+  } catch (err) {
+    console.log(`[RA] Error fetching area ${areaId} (${type}):`, err.message);
+    return [];
   }
-
-  return events;
 }
 
-function parseDate(dateText) {
-  if (!dateText) return null;
-  try {
-    const date = new Date(dateText);
-    if (!isNaN(date) && date > new Date()) return date.toISOString();
-    
-    // Try parsing "Sat, 15 Mar" format
-    const match = dateText.match(/(\w+),?\s*(\d+)\s*(\w+)/);
-    if (match) {
-      const year = new Date().getFullYear();
-      const parsed = new Date(`${match[3]} ${match[2]}, ${year}`);
-      if (!isNaN(parsed)) {
-        if (parsed < new Date()) parsed.setFullYear(year + 1);
-        return parsed.toISOString();
-      }
-    }
-  } catch {}
-  return null;
-}
-
-async function syncRegion(slug, cityName, state) {
-  console.log(`[Resident Advisor] Syncing ${cityName}...`);
-  const rawEvents = await scrapeRegion(slug, cityName, state);
+async function syncArea(area) {
+  console.log(`[RA] Syncing ${area.city}, ${area.state}...`);
   let added = 0;
 
-  for (const raw of rawEvents) {
-    try {
-      const startTime = parseDate(raw.dateText);
-      if (!startTime) continue;
+  // Fetch TODAY events and PICKS (editor's picks, often upcoming)
+  const types = ['TODAY', 'PICKS'];
+  
+  for (const type of types) {
+    const events = await fetchEvents(area.id, type, 100);
+    console.log(`[RA] ${area.city} ${type}: ${events.length} events`);
 
-      const eventData = {
-        source: 'residentadvisor',
-        source_id: `ra_${Buffer.from(raw.title + raw.dateText).toString('base64').substring(0, 24)}`,
-        title: raw.title,
-        category: 'Music',
-        subcategory: 'Electronic/DJ',
-        venue_name: raw.venue,
-        city: raw.city,
-        state: raw.state,
-        country: 'US',
-        start_time: startTime,
-        image_url: raw.image,
-        ticket_url: raw.link,
-      };
+    for (const event of events) {
+      if (!event || !event.title) continue;
 
-      await Event.upsert(eventData);
-      added++;
-    } catch (err) {}
+      try {
+        const imageUrl = event.images?.[0]?.filename 
+          ? `https://ra.co/images/events/flyer/${event.images[0].filename}`
+          : null;
+
+        await Event.upsert({
+          source: 'resident_advisor',
+          source_id: `ra_${event.id}`,
+          title: event.title,
+          description: event.content || event.pick?.blurb || null,
+          category: 'Music',
+          subcategory: 'Electronic',
+          venue_name: event.venue?.name || 'TBA',
+          address: event.venue?.address || null,
+          city: area.city,
+          state: area.state,
+          country: 'US',
+          start_time: event.date ? new Date(event.date) : null,
+          end_time: event.endTime ? new Date(event.endTime) : null,
+          image_url: imageUrl,
+          ticket_url: `https://ra.co/events/${event.id}`,
+          price_min: event.cost ? parseFloat(event.cost.replace(/[^0-9.]/g, '')) || null : null,
+          is_free: event.cost?.toLowerCase()?.includes('free') || false,
+          age_restriction: event.minimumAge ? `${event.minimumAge}+` : null,
+        });
+        added++;
+      } catch (err) {
+        // Skip duplicates silently
+      }
+    }
+    
+    await new Promise(r => setTimeout(r, 500)); // Rate limit
   }
 
-  console.log(`[Resident Advisor] ${cityName}: ${added} events`);
   return added;
 }
 
 async function syncAll() {
-  let total = 0;
-  for (const region of REGIONS) {
-    total += await syncRegion(region.slug, region.city, region.state);
-    await new Promise(r => setTimeout(r, 3000));
+  console.log('[RA] ====== STARTING SYNC ======');
+  console.log(`[RA] Will sync ${US_AREAS.length} US cities`);
+  let totalAdded = 0;
+
+  for (const area of US_AREAS) {
+    try {
+      const added = await syncArea(area);
+      totalAdded += added;
+      console.log(`[RA] ${area.city}: +${added} events`);
+    } catch (err) {
+      console.log(`[RA] Error syncing ${area.city}: ${err.message}`);
+    }
+    await new Promise(r => setTimeout(r, 1000)); // Rate limit between cities
   }
-  console.log(`[Resident Advisor] Total: ${total} events`);
-  return total;
+
+  console.log(`[RA] ====== SYNC COMPLETE: +${totalAdded} events ======`);
+  return totalAdded;
 }
 
-module.exports = { syncRegion, syncAll };
+// Alias for sync manager
+const syncMajorCities = syncAll;
+
+module.exports = { syncAll, syncMajorCities, fetchEvents, US_AREAS };
