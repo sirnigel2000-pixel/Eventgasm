@@ -114,11 +114,21 @@ function EventCard({ event, onPress }) {
               </Text>
             )}
           </View>
-          {event.venue?.city && (
-            <Text style={styles.location}>
-              {event.venue.city}, {event.venue.state}
-            </Text>
-          )}
+          <View style={styles.footerBottom}>
+            {event.venue?.city && (
+              <Text style={styles.location}>
+                {event.venue.city}, {event.venue.state}
+              </Text>
+            )}
+            {/* Social Stats */}
+            {event.social?.total > 0 && (
+              <View style={styles.socialBadge}>
+                <Text style={styles.socialText}>
+                  👥 {event.social.total} interested
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -277,6 +287,21 @@ const styles = StyleSheet.create({
   location: {
     fontSize: 13,
     color: '#888',
+  },
+  footerBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  socialBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  socialText: {
+    fontSize: 12,
+    color: '#667eea',
+    fontWeight: '500',
   },
 });
 

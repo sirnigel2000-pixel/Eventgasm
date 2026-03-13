@@ -15,8 +15,10 @@ import {
 import * as Calendar from 'expo-calendar';
 import { formatEventDate, formatShowtime } from '../utils/formatters';
 import { useFavorites } from '../context/FavoritesContext';
+import { useAuth } from '../context/AuthContext';
 import { scheduleEventReminder } from '../services/notifications';
 import { recordEventView, recordFavorite } from '../services/recommendations';
+import InterestButton from '../components/InterestButton';
 
 const { width } = Dimensions.get('window');
 
@@ -194,6 +196,13 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
 
           <Text style={styles.title}>{event.title}</Text>
+
+          {/* Social Interest Section */}
+          <InterestButton 
+            eventId={event.id} 
+            userId={null} // TODO: Get from auth context
+            initialStats={event.social}
+          />
 
           {hasMultipleShowtimes ? (
             <View style={styles.showtimesSection}>

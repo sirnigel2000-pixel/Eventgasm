@@ -392,7 +392,13 @@ function formatEvent(event) {
     ageRestriction: event.age_restriction,
     source: event.source,
     shareUrl: `${process.env.BASE_URL || 'https://eventgasm.onrender.com'}/e/${event.id}`,
-    distance: event.distance_miles ? Math.round(event.distance_miles * 10) / 10 : null
+    distance: event.distance_miles ? Math.round(event.distance_miles * 10) / 10 : null,
+    // Social stats (populated separately if requested)
+    social: event.social || {
+      interested: 0,
+      going: 0,
+      total: 0,
+    }
   };
 }
 
