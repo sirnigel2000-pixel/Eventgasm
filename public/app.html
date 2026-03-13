@@ -271,6 +271,80 @@
       color: #888;
     }
     .modal-body { padding: 20px; }
+    
+    /* Social tabs */
+    .social-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .social-tab {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: #f0f0f0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .social-tab:hover { background: #e0e0e0; }
+    .social-tab.active { background: #667eea; color: #fff; }
+    
+    /* Activity feed */
+    .activity-list {
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .activity-item {
+      display: flex;
+      align-items: center;
+      padding: 14px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .activity-item:hover { background: #f8f9fa; }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      background: #667eea15;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+      font-size: 18px;
+    }
+    .activity-content { flex: 1; }
+    .activity-text {
+      font-size: 14px;
+      color: #1a1a1a;
+      line-height: 1.4;
+    }
+    .activity-text .user-name { font-weight: 600; }
+    .activity-text .event-name { font-weight: 600; color: #667eea; }
+    .activity-time {
+      font-size: 12px;
+      color: #888;
+      margin-top: 2px;
+    }
+    .activity-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      margin-left: 12px;
+      object-fit: cover;
+      background: #f0f0f0;
+    }
+    .empty-activity {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+    }
   </style>
 </head>
 <body>
@@ -316,11 +390,26 @@
     <div id="social-tab" class="tab-content" style="display:none;">
       <div class="score-card">
         <div class="score-label">Your Event Score</div>
-        <div class="score-value">0</div>
+        <div class="score-value" id="user-score">0</div>
         <div class="score-label">Go to events to earn points!</div>
       </div>
-      <h2 style="margin-bottom:16px;">Find Event Buddies</h2>
-      <p style="color:#666;">Sign up to find people with similar taste in events!</p>
+      
+      <!-- Social Sub-tabs -->
+      <div class="social-tabs">
+        <button class="social-tab active" data-social="activity">📡 Activity</button>
+        <button class="social-tab" data-social="matches">👥 Matches</button>
+        <button class="social-tab" data-social="messages">💬 Messages</button>
+      </div>
+      
+      <div id="activity-content">
+        <div id="activity-feed" class="activity-list"></div>
+      </div>
+      <div id="matches-content" style="display:none;">
+        <p style="color:#666;text-align:center;padding:40px;">Mark events as interested to find people with similar taste!</p>
+      </div>
+      <div id="messages-content" style="display:none;">
+        <p style="color:#666;text-align:center;padding:40px;">No messages yet. Connect with event buddies to start chatting!</p>
+      </div>
     </div>
 
     <!-- Saved Tab -->
@@ -357,6 +446,7 @@
         document.getElementById(tab.dataset.tab + '-tab').style.display = 'block';
         
         if (tab.dataset.tab === 'tonight') loadTonightEvents();
+        if (tab.dataset.tab === 'social') loadActivityFeed();
         if (tab.dataset.tab === 'saved') renderSavedEvents();
       });
     });
@@ -506,6 +596,80 @@
     document.getElementById('event-modal').addEventListener('click', (e) => {
       if (e.target.classList.contains('modal-overlay')) closeModal();
     });
+
+    // Social tab navigation
+    document.querySelectorAll('.social-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.social-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        const section = tab.dataset.social;
+        document.getElementById('activity-content').style.display = section === 'activity' ? 'block' : 'none';
+        document.getElementById('matches-content').style.display = section === 'matches' ? 'block' : 'none';
+        document.getElementById('messages-content').style.display = section === 'messages' ? 'block' : 'none';
+        
+        if (section === 'activity') loadActivityFeed();
+      });
+    });
+
+    // Load activity feed
+    async function loadActivityFeed() {
+      const feed = document.getElementById('activity-feed');
+      feed.innerHTML = '<div class="loading">Loading activity...</div>';
+      
+      try {
+        const res = await fetch(`${API_BASE}/activity/feed/demo`);
+        const data = await res.json();
+        
+        if (!data.activities || data.activities.length === 0) {
+          feed.innerHTML = `
+            <div class="empty-activity">
+              <div style="font-size:48px;margin-bottom:12px;">🌟</div>
+              <div style="font-weight:600;color:#1a1a1a;">No activity yet</div>
+              <div>When people interact with events, you'll see it here!</div>
+            </div>
+          `;
+          return;
+        }
+        
+        feed.innerHTML = data.activities.map(activity => {
+          const icons = { interested: '👀', going: '✓', attended: '🎉', squad_joined: '👥', squad_created: '🚀' };
+          const verbs = { interested: 'is interested in', going: 'is going to', attended: 'attended', squad_joined: 'joined a squad for', squad_created: 'created a squad for' };
+          
+          return `
+            <div class="activity-item" onclick="${activity.event ? `openEvent('${activity.eventId}')` : ''}">
+              <div class="activity-icon">${icons[activity.type] || '📌'}</div>
+              <div class="activity-content">
+                <div class="activity-text">
+                  <span class="user-name">${activity.metadata?.userName || 'Someone'}</span>
+                  ${verbs[activity.type] || 'did something with'}
+                  ${activity.event ? `<span class="event-name">${activity.event.title}</span>` : ''}
+                </div>
+                <div class="activity-time">${getTimeAgo(activity.createdAt)}</div>
+              </div>
+              ${activity.event?.image ? `<img src="${activity.event.image}" class="activity-thumb" onerror="this.style.display='none'">` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        feed.innerHTML = '<div class="empty-activity">Failed to load activity</div>';
+      }
+    }
+
+    function getTimeAgo(dateString) {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString();
+    }
 
     // Initial load
     loadEvents();

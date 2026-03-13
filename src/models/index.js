@@ -8,16 +8,10 @@ const Conversation = require('./Conversation');
 const ConversationParticipant = require('./ConversationParticipant');
 const Squad = require('./Squad');
 const SquadMember = require('./SquadMember');
+const Activity = require('./Activity');
 
 module.exports = {
-  Event,
-  User,
-  SyncLog,
-  UserEventInteraction,
-  UserScore,
-  Message,
-  Conversation,
-  ConversationParticipant,
-  Squad,
-  SquadMember,
+  Event, User, SyncLog, UserEventInteraction, UserScore,
+  Message, Conversation, ConversationParticipant,
+  Squad, SquadMember, Activity,
 };

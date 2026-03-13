@@ -6,19 +6,17 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
+import ActivityFeed from '../components/ActivityFeed';
 
 const SocialScreen = ({ navigation }) => {
-  const [tab, setTab] = useState('matches'); // matches | friends | messages
+  const [tab, setTab] = useState('activity'); // activity | matches | messages
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [userScore, setUserScore] = useState(null);
+  const [userScore, setUserScore] = useState({ totalScore: 0, eventsAttended: 0 });
 
-  // TODO: Get from auth context
   const userId = 'demo-user-id';
 
   useEffect(() => {
@@ -27,19 +25,19 @@ const SocialScreen = ({ navigation }) => {
 
   const loadData = async () => {
     try {
-      // In real app, these would use actual userId
-      // For now, show placeholder UI
-      setLoading(false);
+      const scoreRes = await api.get(`/social/score/${userId}`).catch(() => null);
+      if (scoreRes?.data) {
+        setUserScore(scoreRes.data);
+      }
     } catch (err) {
       console.log('Failed to load social data:', err);
+    } finally {
       setLoading(false);
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+  const handleEventPress = (event) => {
+    navigation.navigate('EventDetail', { event });
   };
 
   const renderMatchCard = ({ item }) => (
@@ -49,11 +47,6 @@ const SocialScreen = ({ navigation }) => {
       </View>
       <View style={styles.matchInfo}>
         <Text style={styles.matchName}>{item.name || 'Event Fan'}</Text>
-        <View style={styles.matchCategories}>
-          {(item.topCategories || []).map((cat, i) => (
-            <Text key={i} style={styles.categoryEmoji}>{cat.emoji}</Text>
-          ))}
-        </View>
         <Text style={styles.matchScore}>{item.totalScore || 0} events</Text>
       </View>
       <View style={styles.matchPercent}>
@@ -63,46 +56,39 @@ const SocialScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  const renderEmptyMatches = () => (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyEmoji}>👥</Text>
-      <Text style={styles.emptyTitle}>Find Your Event Crew</Text>
-      <Text style={styles.emptyText}>
-        Mark events as "Interested" or "Going" to find people with similar taste!
-      </Text>
-      <TouchableOpacity 
-        style={styles.exploreButton}
-        onPress={() => navigation.navigate('Home')}
-      >
-        <Text style={styles.exploreButtonText}>Explore Events</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderScoreCard = () => (
-    <View style={styles.scoreCard}>
-      <View style={styles.scoreHeader}>
-        <Text style={styles.scoreTitle}>Your Event Score</Text>
-        <Text style={styles.scoreValue}>{userScore?.totalScore || 0}</Text>
-      </View>
-      <View style={styles.scoreBreakdown}>
-        {[
-          { label: 'Music', value: userScore?.breakdown?.music || 0, emoji: '🎸' },
-          { label: 'Sports', value: userScore?.breakdown?.sports || 0, emoji: '🏃' },
-          { label: 'Comedy', value: userScore?.breakdown?.comedy || 0, emoji: '🎭' },
-          { label: 'Arts', value: userScore?.breakdown?.arts || 0, emoji: '🎨' },
-        ].map((cat, i) => (
-          <View key={i} style={styles.scoreCategory}>
-            <Text style={styles.scoreCatEmoji}>{cat.emoji}</Text>
-            <Text style={styles.scoreCatValue}>{cat.value}</Text>
+  const renderContent = () => {
+    switch (tab) {
+      case 'activity':
+        return <ActivityFeed userId={userId} onEventPress={handleEventPress} />;
+      case 'matches':
+        return matches.length > 0 ? (
+          <FlatList
+            data={matches}
+            renderItem={renderMatchCard}
+            keyExtractor={(item) => item.userId}
+            contentContainerStyle={styles.list}
+          />
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>👥</Text>
+            <Text style={styles.emptyTitle}>Find Your Event Crew</Text>
+            <Text style={styles.emptyText}>
+              Mark events as "Interested" or "Going" to find people with similar taste!
+            </Text>
           </View>
-        ))}
-      </View>
-      <Text style={styles.scoreHint}>
-        Go to events to increase your score!
-      </Text>
-    </View>
-  );
+        );
+      case 'messages':
+        return (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>💬</Text>
+            <Text style={styles.emptyTitle}>No messages yet</Text>
+            <Text style={styles.emptyText}>Start a conversation with your event matches!</Text>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -110,10 +96,30 @@ const SocialScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Social</Text>
       </View>
 
+      {/* Score Card */}
+      <View style={styles.scoreCard}>
+        <View style={styles.scoreMain}>
+          <Text style={styles.scoreValue}>{userScore.totalScore}</Text>
+          <Text style={styles.scoreLabel}>Event Score</Text>
+        </View>
+        <View style={styles.scoreDivider} />
+        <View style={styles.scoreStats}>
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{userScore.eventsAttended || 0}</Text>
+            <Text style={styles.statLabel}>Attended</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{userScore.eventsGoing || 0}</Text>
+            <Text style={styles.statLabel}>Going</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Tabs */}
       <View style={styles.tabs}>
         {[
-          { key: 'matches', label: 'Matches', icon: 'heart' },
-          { key: 'friends', label: 'Friends', icon: 'people' },
+          { key: 'activity', label: 'Activity', icon: 'pulse' },
+          { key: 'matches', label: 'Matches', icon: 'people' },
           { key: 'messages', label: 'Messages', icon: 'chatbubbles' },
         ].map((t) => (
           <TouchableOpacity
@@ -126,28 +132,17 @@ const SocialScreen = ({ navigation }) => {
               size={20} 
               color={tab === t.key ? '#667eea' : '#888'} 
             />
-            <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>
+            <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>
               {t.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#667eea" style={styles.loader} />
-      ) : (
-        <FlatList
-          data={matches}
-          renderItem={renderMatchCard}
-          keyExtractor={(item) => item.userId || Math.random().toString()}
-          ListHeaderComponent={renderScoreCard}
-          ListEmptyComponent={renderEmptyMatches}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        />
-      )}
+      {/* Content */}
+      <View style={styles.content}>
+        {renderContent()}
+      </View>
     </View>
   );
 };
@@ -168,11 +163,53 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a1a',
   },
+  scoreCard: {
+    flexDirection: 'row',
+    backgroundColor: 'linear-gradient(135deg, #667eea, #764ba2)',
+    backgroundColor: '#667eea',
+    margin: 16,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+  },
+  scoreMain: {
+    alignItems: 'center',
+  },
+  scoreValue: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  scoreLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+  },
+  scoreDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    marginHorizontal: 20,
+  },
+  scoreStats: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  stat: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.8)',
+  },
   tabs: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    paddingHorizontal: 10,
-    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -181,115 +218,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     gap: 6,
   },
   tabActive: {
     borderBottomWidth: 2,
     borderBottomColor: '#667eea',
   },
-  tabText: {
+  tabLabel: {
     fontSize: 14,
     color: '#888',
     fontWeight: '500',
   },
-  tabTextActive: {
+  tabLabelActive: {
     color: '#667eea',
-    fontWeight: '600',
   },
-  loader: {
-    marginTop: 40,
+  content: {
+    flex: 1,
   },
   list: {
     padding: 16,
-  },
-  scoreCard: {
-    backgroundColor: '#667eea',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-  },
-  scoreHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  scoreTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  scoreValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  scoreBreakdown: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-  },
-  scoreCategory: {
-    alignItems: 'center',
-  },
-  scoreCatEmoji: {
-    fontSize: 24,
-  },
-  scoreCatValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    marginTop: 4,
-  },
-  scoreHint: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    textAlign: 'center',
   },
   matchCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    padding: 14,
+    marginBottom: 10,
   },
   matchAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#f0f0f0',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#667eea15',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   avatarText: {
     fontSize: 24,
   },
   matchInfo: {
     flex: 1,
-    marginLeft: 12,
   },
   matchName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1a1a1a',
   },
-  matchCategories: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 4,
-  },
-  categoryEmoji: {
-    fontSize: 16,
-  },
   matchScore: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#888',
     marginTop: 2,
   },
@@ -302,40 +281,28 @@ const styles = StyleSheet.create({
     color: '#667eea',
   },
   percentLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#888',
   },
   emptyState: {
     alignItems: 'center',
-    paddingTop: 40,
+    paddingTop: 60,
+    paddingHorizontal: 40,
   },
   emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 48,
+    marginBottom: 12,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#1a1a1a',
-    marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
     color: '#888',
     textAlign: 'center',
-    paddingHorizontal: 40,
-    marginBottom: 20,
-  },
-  exploreButton: {
-    backgroundColor: '#667eea',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  exploreButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
+    marginTop: 4,
   },
 });
 
