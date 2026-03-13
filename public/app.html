@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eventgasm - Discover Events</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f8f9fa;
+      min-height: 100vh;
+    }
+    
+    /* Navigation */
+    .nav {
+      background: #fff;
+      border-bottom: 1px solid #f0f0f0;
+      padding: 12px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      color: #667eea;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+    }
+    .nav-tab {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: none;
+      background: transparent;
+      color: #666;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-tab:hover { background: #f0f0f0; }
+    .nav-tab.active { background: #667eea; color: #fff; }
+    
+    /* Main content */
+    .main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .filter-chip {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid #ddd;
+      background: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-chip:hover { border-color: #667eea; }
+    .filter-chip.active { background: #667eea; color: #fff; border-color: #667eea; }
+    
+    /* Event grid */
+    .events-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    
+    /* Event card */
+    .event-card {
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .event-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .event-image {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+    }
+    .event-content {
+      padding: 16px;
+    }
+    .event-category {
+      display: inline-block;
+      padding: 4px 10px;
+      background: #667eea15;
+      color: #667eea;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .event-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .event-date {
+      color: #667eea;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .event-venue {
+      color: #666;
+      font-size: 14px;
+    }
+    .event-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f0f0f0;
+    }
+    .event-price {
+      font-weight: 700;
+      color: #667eea;
+    }
+    .event-social {
+      font-size: 12px;
+      color: #667eea;
+    }
+    .free-badge {
+      background: #10b981;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      position: absolute;
+      top: 12px;
+      left: 12px;
+    }
+    .event-image-container {
+      position: relative;
+    }
+    
+    /* Interest buttons */
+    .interest-buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .interest-btn {
+      flex: 1;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1.5px solid #667eea;
+      background: #fff;
+      color: #667eea;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .interest-btn:hover { background: #667eea10; }
+    .interest-btn.active { background: #667eea; color: #fff; }
+    .interest-btn.going { border-color: #10b981; color: #10b981; }
+    .interest-btn.going:hover { background: #10b98110; }
+    .interest-btn.going.active { background: #10b981; color: #fff; }
+    
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+    }
+    
+    /* Tonight section */
+    .tonight-header {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      padding: 30px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+    }
+    .tonight-title {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .tonight-date {
+      opacity: 0.9;
+    }
+    
+    /* Social section */
+    .score-card {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      padding: 24px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+    }
+    .score-value {
+      font-size: 48px;
+      font-weight: 800;
+    }
+    .score-label {
+      opacity: 0.9;
+    }
+    
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      display: none;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 16px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #888;
+    }
+    .modal-body { padding: 20px; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-content">
+      <div class="logo">🎉 Eventgasm</div>
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="home">Home</button>
+        <button class="nav-tab" data-tab="tonight">🔥 Tonight</button>
+        <button class="nav-tab" data-tab="social">Social</button>
+        <button class="nav-tab" data-tab="saved">Saved</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <!-- Home Tab -->
+    <div id="home-tab" class="tab-content">
+      <div class="filters">
+        <button class="filter-chip active" data-category="">All Events</button>
+        <button class="filter-chip" data-category="Music">🎸 Music</button>
+        <button class="filter-chip" data-category="Sports">🏃 Sports</button>
+        <button class="filter-chip" data-category="Comedy">🎭 Comedy</button>
+        <button class="filter-chip" data-category="Arts">🎨 Arts</button>
+        <button class="filter-chip" data-category="Food">🍕 Food</button>
+        <button class="filter-chip" data-category="Community">👥 Community</button>
+      </div>
+      <div id="events-grid" class="events-grid">
+        <div class="loading">Loading events...</div>
+      </div>
+    </div>
+
+    <!-- Tonight Tab -->
+    <div id="tonight-tab" class="tab-content" style="display:none;">
+      <div class="tonight-header">
+        <div class="tonight-title">🔥 Tonight</div>
+        <div class="tonight-date" id="tonight-date"></div>
+      </div>
+      <div id="tonight-grid" class="events-grid"></div>
+    </div>
+
+    <!-- Social Tab -->
+    <div id="social-tab" class="tab-content" style="display:none;">
+      <div class="score-card">
+        <div class="score-label">Your Event Score</div>
+        <div class="score-value">0</div>
+        <div class="score-label">Go to events to earn points!</div>
+      </div>
+      <h2 style="margin-bottom:16px;">Find Event Buddies</h2>
+      <p style="color:#666;">Sign up to find people with similar taste in events!</p>
+    </div>
+
+    <!-- Saved Tab -->
+    <div id="saved-tab" class="tab-content" style="display:none;">
+      <h2 style="margin-bottom:16px;">❤️ Saved Events</h2>
+      <div id="saved-grid" class="events-grid">
+        <p style="color:#666;">Click the heart on events to save them here.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Event Detail Modal -->
+  <div class="modal-overlay" id="event-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Event Title</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    let currentCategory = '';
+    let savedEvents = JSON.parse(localStorage.getItem('savedEvents') || '[]');
+
+    // Tab navigation
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + '-tab').style.display = 'block';
+        
+        if (tab.dataset.tab === 'tonight') loadTonightEvents();
+        if (tab.dataset.tab === 'saved') renderSavedEvents();
+      });
+    });
+
+    // Category filters
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentCategory = chip.dataset.category;
+        loadEvents();
+      });
+    });
+
+    // Load events
+    async function loadEvents() {
+      const grid = document.getElementById('events-grid');
+      grid.innerHTML = '<div class="loading">Loading events...</div>';
+      
+      try {
+        const params = new URLSearchParams({ limit: 50 });
+        if (currentCategory) params.append('category', currentCategory);
+        
+        const res = await fetch(`${API_BASE}/events?${params}`);
+        const data = await res.json();
+        
+        grid.innerHTML = data.events.map(event => renderEventCard(event)).join('');
+      } catch (err) {
+        grid.innerHTML = '<div class="loading">Failed to load events</div>';
+      }
+    }
+
+    // Load tonight events
+    async function loadTonightEvents() {
+      const grid = document.getElementById('tonight-grid');
+      const dateEl = document.getElementById('tonight-date');
+      
+      const now = new Date();
+      dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      
+      grid.innerHTML = '<div class="loading">Loading tonight\'s events...</div>';
+      
+      try {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(4, 0, 0, 0);
+        
+        const params = new URLSearchParams({
+          limit: 50,
+          startDate: now.toISOString(),
+          endDate: tomorrow.toISOString()
+        });
+        
+        const res = await fetch(`${API_BASE}/events?${params}`);
+        const data = await res.json();
+        
+        if (data.events.length === 0) {
+          grid.innerHTML = '<p style="color:#666;text-align:center;padding:40px;">No events tonight. Check back later!</p>';
+        } else {
+          grid.innerHTML = data.events.map(event => renderEventCard(event)).join('');
+        }
+      } catch (err) {
+        grid.innerHTML = '<div class="loading">Failed to load events</div>';
+      }
+    }
+
+    // Render event card
+    function renderEventCard(event) {
+      const isSaved = savedEvents.some(e => e.id === event.id);
+      const date = event.timing?.start ? new Date(event.timing.start).toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      }) : 'Date TBA';
+      
+      return `
+        <div class="event-card" onclick="openEvent('${event.id}')">
+          <div class="event-image-container">
+            ${event.image ? `<img src="${event.image}" class="event-image" onerror="this.style.display='none'">` : '<div class="event-image"></div>'}
+            ${event.isFree ? '<span class="free-badge">FREE</span>' : ''}
+          </div>
+          <div class="event-content">
+            <span class="event-category">${event.category || 'Event'}</span>
+            <h3 class="event-title">${event.title}</h3>
+            <div class="event-date">📅 ${date}</div>
+            <div class="event-venue">📍 ${event.venue?.name || 'Venue TBA'}</div>
+            <div class="event-footer">
+              ${event.price?.min ? `<span class="event-price">From $${Math.round(event.price.min)}</span>` : '<span></span>'}
+              <span class="event-social">👥 ${event.social?.total || Math.floor(Math.random() * 50)} interested</span>
+            </div>
+            <div class="interest-buttons">
+              <button class="interest-btn" onclick="event.stopPropagation(); markInterested('${event.id}')">👀 Interested</button>
+              <button class="interest-btn going" onclick="event.stopPropagation(); markGoing('${event.id}')">✓ Going</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render saved events
+    function renderSavedEvents() {
+      const grid = document.getElementById('saved-grid');
+      if (savedEvents.length === 0) {
+        grid.innerHTML = '<p style="color:#666;">Click the heart on events to save them here.</p>';
+      } else {
+        grid.innerHTML = savedEvents.map(event => renderEventCard(event)).join('');
+      }
+    }
+
+    // Open event modal
+    async function openEvent(eventId) {
+      try {
+        const res = await fetch(`${API_BASE}/events/${eventId}`);
+        const data = await res.json();
+        const event = data.event || data;
+        
+        document.getElementById('modal-title').textContent = event.title;
+        document.getElementById('modal-body').innerHTML = `
+          ${event.image ? `<img src="${event.image}" style="width:100%;border-radius:8px;margin-bottom:16px;">` : ''}
+          <p style="color:#667eea;font-weight:600;margin-bottom:8px;">
+            📅 ${event.timing?.start ? new Date(event.timing.start).toLocaleDateString('en-US', {
+              weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit'
+            }) : 'Date TBA'}
+          </p>
+          <p style="margin-bottom:16px;">📍 ${event.venue?.name || 'Venue TBA'} - ${event.venue?.city || ''}, ${event.venue?.state || ''}</p>
+          <p style="color:#666;margin-bottom:16px;">${event.description || 'No description available.'}</p>
+          ${event.ticketUrl ? `<a href="${event.ticketUrl}" target="_blank" style="display:block;background:#667eea;color:#fff;text-align:center;padding:12px;border-radius:8px;text-decoration:none;font-weight:600;">Get Tickets</a>` : ''}
+        `;
+        document.getElementById('event-modal').classList.add('active');
+      } catch (err) {
+        console.log('Failed to load event:', err);
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('event-modal').classList.remove('active');
+    }
+
+    // Interest actions
+    function markInterested(eventId) {
+      alert('Sign up to mark events as interested!');
+    }
+    
+    function markGoing(eventId) {
+      alert('Sign up to mark events as going!');
+    }
+
+    // Close modal on overlay click
+    document.getElementById('event-modal').addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-overlay')) closeModal();
+    });
+
+    // Initial load
+    loadEvents();
+  </script>
+</body>
+</html>
