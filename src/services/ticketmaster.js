@@ -106,7 +106,7 @@ async function syncState(stateCode) {
   let totalUpdated = 0;
   let hasMore = true;
 
-  while (hasMore && page < 5) { // Limit to 5 pages (1000 events) per state
+  while (hasMore && page < 10) { // Limit to 5 pages (1000 events) per state
     const { events, totalPages } = await fetchEvents({ stateCode, page });
     
     for (const eventData of events) {
