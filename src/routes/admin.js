@@ -268,3 +268,26 @@ router.post('/sync/power', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Mass Sync - Aggressive overnight scrape for 100K target
+router.post('/sync/mass', authMiddleware, async (req, res) => {
+  try {
+    const massSync = require('../services/massSync');
+    
+    // Run async
+    massSync.runMassSync().then(stats => {
+      console.log('[Admin] Mass sync complete:', stats);
+    }).catch(err => {
+      console.error('[Admin] Mass sync error:', err);
+    });
+    
+    res.json({ 
+      message: 'Mass sync started - targeting 100K events',
+      cities: 60,
+      sources: ['allevents', 'eventbrite', 'bandsintown'],
+      status: 'running'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
