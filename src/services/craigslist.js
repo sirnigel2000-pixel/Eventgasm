@@ -47,7 +47,7 @@ async function scrapeCity(subdomain, cityName, state) {
 
     const $ = cheerio.load(response.data);
 
-    $('.cl-search-result, .result-row, li.result-row').each((i, el) => {
+    $('.cl-static-search-result, .cl-search-result, .result-row, li.result-row').each((i, el) => {
       try {
         const $el = $(el);
         const title = $el.find('.titlestring, .result-title, a.posting-title').text().trim();
