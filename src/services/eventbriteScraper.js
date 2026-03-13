@@ -159,3 +159,4 @@ async function syncAll() {
 const syncMajorCities = syncAll;
 
 module.exports = { syncAll, syncMajorCities, scrapeCityCategory, CITIES, CATEGORIES };
+// Force rebuild: Fri Mar 13 14:01:01 EDT 2026
