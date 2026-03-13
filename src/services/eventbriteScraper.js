@@ -127,10 +127,12 @@ async function scrapeCityCategory(citySlug, cityName, state, catSlug, category) 
           ticket_url: e.url,
         });
         added++;
-      } catch (err) {}
+      } catch (err) {
+        console.log(`[Eventbrite] Error saving event: ${err.message}`);
+      }
     }
 
-    console.log(`[Eventbrite] ${cityName}/${catSlug}: +${added} events`);
+    console.log(`[Eventbrite] ${cityName}/${catSlug}: +${added} events (found ${events.length})`);
     return added;
   } catch (err) {
     console.log(`[Eventbrite] Error ${cityName}/${catSlug}: ${err.message}`);
@@ -140,18 +142,24 @@ async function scrapeCityCategory(citySlug, cityName, state, catSlug, category) 
 
 // Sync all cities and categories
 async function syncAll() {
-  console.log('[Eventbrite] Starting full sync...');
+  console.log('[Eventbrite] ====== STARTING FULL SYNC ======');
+  console.log(`[Eventbrite] Will scrape ${CITIES.length} cities × ${CATEGORIES.length} categories`);
   let totalAdded = 0;
 
   for (const city of CITIES) {
+    console.log(`[Eventbrite] Processing city: ${city.city}, ${city.state}`);
     for (const cat of CATEGORIES) {
-      const added = await scrapeCityCategory(city.slug, city.city, city.state, cat.slug, cat.category);
-      totalAdded += added;
+      try {
+        const added = await scrapeCityCategory(city.slug, city.city, city.state, cat.slug, cat.category);
+        totalAdded += added;
+      } catch (err) {
+        console.log(`[Eventbrite] FATAL error on ${city.city}/${cat.slug}: ${err.message}`);
+      }
       await sleep(1500); // Be polite
     }
   }
 
-  console.log(`[Eventbrite] Sync complete: +${totalAdded} events`);
+  console.log(`[Eventbrite] ====== SYNC COMPLETE: +${totalAdded} events ======`);
   return totalAdded;
 }
 
