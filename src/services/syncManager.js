@@ -51,9 +51,16 @@ try {
 }
 
 let craigslist, residentAdvisor, universityEvents, cityGov;
+let sportsScraper;
 
 try {
   craigslist = require('./craigslist');
+
+try {
+  sportsScraper = require('./sportsScraper');
+} catch (e) {
+  console.log('[SyncManager] Sports Scraper module not available');
+}
 } catch (e) {
   console.log('[SyncManager] Craigslist module not available');
 }
@@ -299,6 +306,18 @@ async function runFullSync() {
       } catch (err) {
         stats.errors.push(`Rural: ${err.message}`);
         await logSync('rural', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // Sports Events (MLB, NBA, NHL, NFL, MLS, etc.)
+    if (sportsScraper) {
+      console.log('[SyncManager] Syncing Sports Events...');
+      try {
+        stats.sports = await sportsScraper.syncAll();
+        await logSync('sports', 'US', stats.sports, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Sports: ${err.message}`);
+        await logSync('sports', 'US', 0, 0, 'error', err.message);
       }
     }
 
