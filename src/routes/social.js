@@ -144,3 +144,52 @@ router.get('/events/:eventId/users', async (req, res) => {
 });
 
 module.exports = router;
+
+const matchService = require('../services/matchService');
+
+// Get matches for a user
+router.get('/users/:userId/matches', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { limit = 20, minScore = 50 } = req.query;
+    
+    const matches = await matchService.findMatches(userId, {
+      limit: parseInt(limit),
+      minScore: parseInt(minScore),
+    });
+    
+    res.json({
+      matches,
+      count: matches.length,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get match percentage between two users
+router.get('/users/:userId/match/:otherUserId', async (req, res) => {
+  try {
+    const { userId, otherUserId } = req.params;
+    const matchPercent = await matchService.calculateMatch(userId, otherUserId);
+    
+    res.json({ matchPercent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get users interested in same event with match scores
+router.get('/events/:eventId/matches/:userId', async (req, res) => {
+  try {
+    const { eventId, userId } = req.params;
+    const matches = await matchService.findEventMatches(userId, eventId);
+    
+    res.json({
+      matches,
+      count: matches.length,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
