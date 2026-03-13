@@ -11,6 +11,8 @@ import MapScreen from './src/screens/MapScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import SocialScreen from './src/screens/SocialScreen';
 import SavedScreen from './src/screens/SavedScreen';
+import TonightScreen from './src/screens/TonightScreen';
+import ChatScreen from './src/screens/ChatScreen';
 import OnboardingScreen, { checkOnboardingComplete } from './src/screens/OnboardingScreen';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 import { AuthProvider } from './src/context/AuthContext';
@@ -19,7 +21,6 @@ import { addNotificationListeners, registerForPushNotifications } from './src/se
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Main tab navigator
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -29,6 +30,8 @@ function MainTabs() {
           let iconName;
           if (route.name === 'HomeTab') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'TonightTab') {
+            iconName = focused ? 'flame' : 'flame-outline';
           } else if (route.name === 'SocialTab') {
             iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'SavedTab') {
@@ -49,7 +52,7 @@ function MainTabs() {
           height: 60,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '500',
         },
       })}
@@ -58,6 +61,11 @@ function MainTabs() {
         name="HomeTab" 
         component={HomeScreen}
         options={{ tabBarLabel: 'Home' }}
+      />
+      <Tab.Screen 
+        name="TonightTab" 
+        component={TonightScreen}
+        options={{ tabBarLabel: 'Tonight' }}
       />
       <Tab.Screen 
         name="SocialTab" 
@@ -89,9 +97,7 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = addNotificationListeners(
-      (notification) => {
-        console.log('Notification received:', notification);
-      },
+      (notification) => console.log('Notification received:', notification),
       (response) => {
         const data = response.notification.request.content.data;
         if (data?.eventId && navigationRef.current) {
@@ -106,9 +112,7 @@ export default function App() {
     try {
       const onboardingComplete = await checkOnboardingComplete();
       setShowOnboarding(!onboardingComplete);
-      if (onboardingComplete) {
-        registerForPushNotifications();
-      }
+      if (onboardingComplete) registerForPushNotifications();
     } catch (error) {
       console.error('Error checking initial state:', error);
     } finally {
@@ -121,36 +125,19 @@ export default function App() {
     registerForPushNotifications();
   };
 
-  if (isLoading) {
-    return null;
-  }
-
-  if (showOnboarding) {
-    return <OnboardingScreen onComplete={handleOnboardingComplete} />;
-  }
+  if (isLoading) return null;
+  if (showOnboarding) return <OnboardingScreen onComplete={handleOnboardingComplete} />;
 
   return (
     <AuthProvider>
     <FavoritesProvider>
       <NavigationContainer ref={navigationRef}>
         <StatusBar style="dark" />
-        <Stack.Navigator 
-          screenOptions={{ 
-            headerShown: false,
-            animation: 'slide_from_right',
-          }}
-        >
+        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
           <Stack.Screen name="Main" component={MainTabs} />
-          <Stack.Screen 
-            name="EventDetail" 
-            component={EventDetailScreen}
-            options={{ animation: 'slide_from_bottom' }}
-          />
-          <Stack.Screen 
-            name="Map" 
-            component={MapScreen}
-            options={{ animation: 'slide_from_right' }}
-          />
+          <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="Map" component={MapScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </FavoritesProvider>
