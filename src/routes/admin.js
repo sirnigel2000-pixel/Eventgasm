@@ -216,3 +216,37 @@ router.post('/events/mark-free', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+
+// B2B Lead Generation
+router.get('/leads/generate', authMiddleware, async (req, res) => {
+  try {
+    const leadScraper = require('../services/leadScraper');
+    const Event = require('../models/Event');
+    
+    const leads = await leadScraper.getLeadsFromEvents(Event);
+    
+    res.json({
+      count: leads.length,
+      leads: leads.slice(0, 50), // Preview first 50
+      message: 'Use /leads/export for full CSV'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/leads/export', authMiddleware, async (req, res) => {
+  try {
+    const leadScraper = require('../services/leadScraper');
+    const Event = require('../models/Event');
+    
+    const leads = await leadScraper.getLeadsFromEvents(Event);
+    const csv = leadScraper.exportToCSV(leads);
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=eventgasm_leads.csv');
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
