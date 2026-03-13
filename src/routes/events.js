@@ -391,7 +391,7 @@ function formatEvent(event) {
     isFree: event.is_free,
     ageRestriction: event.age_restriction,
     source: event.source,
-    shareUrl: `${process.env.BASE_URL || 'https://eventgasm.onrender.com'}/e/${event.id}`,
+    shareUrl: `${process.env.BASE_URL || 'https://eventgasm.com'}/e/${event.id}`,
     distance: event.distance_miles ? Math.round(event.distance_miles * 10) / 10 : null,
     // Social stats (populated separately if requested)
     social: event.social || {

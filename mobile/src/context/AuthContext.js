@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const AuthContext = createContext();
 
 const AUTH_KEY = '@eventgasm_user';
-const API_URL = 'https://eventgasm.onrender.com';
+const API_URL = 'https://eventgasm.com';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);

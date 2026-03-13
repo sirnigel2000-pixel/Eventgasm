@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { cache, cacheKey } from './cache';
 
-const API_BASE = 'https://eventgasm.onrender.com/api';
+const API_BASE = 'https://eventgasm.com/api';
 
 const api = axios.create({
   baseURL: API_BASE,

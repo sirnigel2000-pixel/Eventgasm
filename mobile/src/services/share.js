@@ -1,6 +1,6 @@
 import { Share, Platform } from 'react-native';
 
-const BASE_URL = 'https://eventgasm.onrender.com';
+const BASE_URL = 'https://eventgasm.com';
 
 export const shareEvent = async (event) => {
   try {

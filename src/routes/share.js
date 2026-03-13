@@ -33,8 +33,8 @@ router.get('/event/:id', async (req, res) => {
   <!-- Open Graph -->
   <meta property="og:title" content="${event.title}">
   <meta property="og:description" content="${description}">
-  <meta property="og:image" content="${event.image_url || 'https://eventgasm.onrender.com/og-default.png'}">
-  <meta property="og:url" content="https://eventgasm.onrender.com/share/event/${event.id}">
+  <meta property="og:image" content="${event.image_url || 'https://eventgasm.com/og-default.png'}">
+  <meta property="og:url" content="https://eventgasm.com/share/event/${event.id}">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Eventgasm">
   
@@ -42,7 +42,7 @@ router.get('/event/:id', async (req, res) => {
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${event.title}">
   <meta name="twitter:description" content="${description}">
-  <meta name="twitter:image" content="${event.image_url || 'https://eventgasm.onrender.com/og-default.png'}">
+  <meta name="twitter:image" content="${event.image_url || 'https://eventgasm.com/og-default.png'}">
   
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -124,10 +124,10 @@ router.get('/event/:id', async (req, res) => {
       <div class="date">📅 ${date}</div>
       <div class="venue">📍 ${venue}${location ? ` • ${location}` : ''}</div>
       ${event.description ? `<p class="description">${event.description.slice(0, 300)}</p>` : ''}
-      <a href="https://eventgasm.onrender.com/app.html" class="cta">View on Eventgasm</a>
+      <a href="https://eventgasm.com/app.html" class="cta">View on Eventgasm</a>
     </div>
   </div>
-  <div class="footer">🎉 Find more events at eventgasm.onrender.com</div>
+  <div class="footer">🎉 Find more events at eventgasm.com</div>
 </body>
 </html>`;
     
