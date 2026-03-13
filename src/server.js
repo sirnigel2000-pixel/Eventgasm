@@ -13,6 +13,7 @@ const socialRouter = require('./routes/social');
 const messagesRouter = require('./routes/messages');
 const squadsRouter = require('./routes/squads');
 const activityRouter = require('./routes/activity');
+const shareRouter = require('./routes/share');
 const syncManager = require('./services/syncManager');
 
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/social', socialRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/squads', squadsRouter);
 app.use('/api/activity', activityRouter);
+app.use('/share', shareRouter);
 app.use('/admin', adminRouter);
 
 // Health check

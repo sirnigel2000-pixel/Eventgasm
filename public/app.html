@@ -571,7 +571,8 @@
           </p>
           <p style="margin-bottom:16px;">📍 ${event.venue?.name || 'Venue TBA'} - ${event.venue?.city || ''}, ${event.venue?.state || ''}</p>
           <p style="color:#666;margin-bottom:16px;">${event.description || 'No description available.'}</p>
-          ${event.ticketUrl ? `<a href="${event.ticketUrl}" target="_blank" style="display:block;background:#667eea;color:#fff;text-align:center;padding:12px;border-radius:8px;text-decoration:none;font-weight:600;">Get Tickets</a>` : ''}
+          ${event.ticketUrl ? `<a href="${event.ticketUrl}" target="_blank" style="display:block;background:#667eea;color:#fff;text-align:center;padding:12px;border-radius:8px;text-decoration:none;font-weight:600;margin-bottom:10px;">Get Tickets</a>` : ''}
+          <button onclick="shareEvent('${event.id}', '${event.title.replace(/'/g, "\\'")}')" style="display:block;width:100%;background:#f0f0f0;color:#1a1a1a;text-align:center;padding:12px;border-radius:8px;border:none;font-weight:600;cursor:pointer;">📤 Share Event</button>
         `;
         document.getElementById('event-modal').classList.add('active');
       } catch (err) {
@@ -581,6 +582,35 @@
 
     function closeModal() {
       document.getElementById('event-modal').classList.remove('active');
+    }
+
+    // Share event
+    async function shareEvent(eventId, title) {
+      const shareUrl = `${window.location.origin}/share/event/${eventId}`;
+      
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: title,
+            text: `Check out ${title} on Eventgasm!`,
+            url: shareUrl,
+          });
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            copyToClipboard(shareUrl);
+          }
+        }
+      } else {
+        copyToClipboard(shareUrl);
+      }
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Link copied to clipboard!');
+      }).catch(() => {
+        prompt('Copy this link:', text);
+      });
     }
 
     // Interest actions
