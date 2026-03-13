@@ -52,12 +52,19 @@ try {
 
 let craigslist, residentAdvisor, universityEvents, cityGov;
 let sportsScraper;
+let cityDataScraper;
 
 try {
   craigslist = require('./craigslist');
 
 try {
   sportsScraper = require('./sportsScraper');
+
+try {
+  cityDataScraper = require('./cityDataScraper');
+} catch (e) {
+  console.log('[SyncManager] CityData Scraper module not available');
+}
 } catch (e) {
   console.log('[SyncManager] Sports Scraper module not available');
 }
@@ -318,6 +325,18 @@ async function runFullSync() {
       } catch (err) {
         stats.errors.push(`Sports: ${err.message}`);
         await logSync('sports', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // City Open Data (NYC, Chicago, SF, LA, etc.)
+    if (cityDataScraper) {
+      console.log('[SyncManager] Syncing City Open Data...');
+      try {
+        stats.cityData = await cityDataScraper.syncAll();
+        await logSync('citydata', 'US', stats.cityData, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`CityData: ${err.message}`);
+        await logSync('citydata', 'US', 0, 0, 'error', err.message);
       }
     }
 
