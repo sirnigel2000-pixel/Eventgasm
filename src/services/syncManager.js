@@ -54,6 +54,7 @@ let craigslist, residentAdvisor, universityEvents, cityGov;
 let sportsScraper;
 let cityDataScraper;
 let festivalScraper;
+let theaterScraper;
 
 try {
   craigslist = require('./craigslist');
@@ -66,6 +67,12 @@ try {
 
 try {
   festivalScraper = require('./festivalScraper');
+
+try {
+  theaterScraper = require('./theaterScraper');
+} catch (e) {
+  console.log('[SyncManager] Theater Scraper module not available');
+}
 } catch (e) {
   console.log('[SyncManager] Festival Scraper module not available');
 }
@@ -356,6 +363,18 @@ async function runFullSync() {
       } catch (err) {
         stats.errors.push(`Festivals: ${err.message}`);
         await logSync('festivals', 'US', 0, 0, 'error', err.message);
+      }
+    }
+
+    // Theater (Broadway shows, national tours)
+    if (theaterScraper) {
+      console.log('[SyncManager] Syncing Theater...');
+      try {
+        stats.theater = await theaterScraper.syncAll();
+        await logSync('theater', 'US', stats.theater, 0, 'success');
+      } catch (err) {
+        stats.errors.push(`Theater: ${err.message}`);
+        await logSync('theater', 'US', 0, 0, 'error', err.message);
       }
     }
 
