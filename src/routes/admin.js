@@ -250,3 +250,21 @@ router.get('/leads/export', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Power Scraper - Differentiator events
+router.post('/sync/power', authMiddleware, async (req, res) => {
+  try {
+    const powerScraper = require('../services/powerScraper');
+    
+    // Run async, return immediately
+    powerScraper.runAllPowerScrapers().then(results => {
+      console.log('[Admin] Power scrape complete:', results);
+    }).catch(err => {
+      console.error('[Admin] Power scrape error:', err);
+    });
+    
+    res.json({ message: 'Power scrape started', status: 'running' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
