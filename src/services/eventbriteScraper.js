@@ -79,6 +79,8 @@ function extractEventsFromHTML(html) {
 async function scrapeCityCategory(citySlug, cityName, state, catSlug, category) {
   const url = `${BASE_URL}/d/${citySlug}/${catSlug}/`;
   
+  console.log(`[Eventbrite] Scraping ${url}...`);
+  
   if (isBlocked(url)) {
     console.log(`[Eventbrite] ${cityName}/${catSlug} blocked, skipping`);
     return 0;
@@ -86,9 +88,14 @@ async function scrapeCityCategory(citySlug, cityName, state, catSlug, category) 
 
   try {
     const response = await resilientFetch(url);
-    if (!response?.data) return 0;
+    if (!response?.data) {
+      console.log(`[Eventbrite] No response data for ${cityName}/${catSlug}`);
+      return 0;
+    }
 
+    console.log(`[Eventbrite] Got ${response.data.length} bytes from ${cityName}/${catSlug}`);
     const events = extractEventsFromHTML(response.data);
+    console.log(`[Eventbrite] Extracted ${events.length} events from ${cityName}/${catSlug}`);
     let added = 0;
 
     for (const e of events) {
