@@ -19,7 +19,8 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Callout } from 'react-native-maps';
+import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import ClusteredMapView from 'react-native-map-clustering';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -197,7 +198,7 @@ export default function MapScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <MapView
+      <ClusteredMapView
         ref={mapRef}
         style={styles.map}
         initialRegion={region}
@@ -205,6 +206,16 @@ export default function MapScreen({ navigation, route }) {
         showsUserLocation
         showsCompass={false}
         rotateEnabled={false}
+        clusterColor={colors.primary}
+        clusterTextColor="#fff"
+        clusterFontFamily="System"
+        radius={50}
+        minZoomLevel={3}
+        maxZoomLevel={20}
+        extent={512}
+        animationEnabled={true}
+        spiralEnabled={true}
+        superClusterRef={{ current: null }}
       >
         {events.map((event) => (
           <Marker
@@ -237,7 +248,7 @@ export default function MapScreen({ navigation, route }) {
             </Callout>
           </Marker>
         ))}
-      </MapView>
+      </ClusteredMapView>
 
       {/* Header */}
       <SafeAreaView style={styles.header} edges={['top']}>
