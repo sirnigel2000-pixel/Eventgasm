@@ -65,6 +65,66 @@ function groupEventsByShowtime(events) {
   }));
 }
 
+// GET /api/events/recommended - Personalized event recommendations
+// Uses location + user preferences to sort events
+router.get('/recommended', async (req, res) => {
+  try {
+    const {
+      lat, lng, radius = 50,
+      preferred_categories,
+      limit = 50,
+      offset = 0,
+    } = req.query;
+
+    let events = [];
+    
+    // If we have location, get nearby events
+    if (lat && lng) {
+      events = await Event.findNearby({
+        latitude: parseFloat(lat),
+        longitude: parseFloat(lng),
+        radiusMiles: parseInt(radius),
+        limit: Math.min(parseInt(limit) * 2, 200), // Fetch extra for filtering
+        offset: parseInt(offset),
+      });
+    } else {
+      // Fallback: get upcoming events sorted by popularity
+      events = await Event.getTrending({ limit: parseInt(limit) * 2 });
+    }
+
+    // Boost preferred categories to the top
+    if (preferred_categories) {
+      const preferred = preferred_categories.split(',').map(c => c.trim().toLowerCase());
+      events = events.map(e => ({
+        ...e,
+        _boost: preferred.includes((e.category || '').toLowerCase()) ? 100 : 0
+      }));
+      
+      // Sort by boost (preferred first), then by original order (distance)
+      events.sort((a, b) => {
+        if (b._boost !== a._boost) return b._boost - a._boost;
+        return 0; // Keep original distance-based order for same boost
+      });
+    }
+
+    // Limit results
+    events = events.slice(0, parseInt(limit));
+
+    // Format events
+    const formattedEvents = events.map(formatEvent);
+
+    res.json({
+      success: true,
+      count: formattedEvents.length,
+      personalized: !!preferred_categories,
+      events: formattedEvents,
+    });
+  } catch (error) {
+    console.error('Error fetching recommended events:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch recommendations' });
+  }
+});
+
 // GET /api/events - List events with filters
 router.get('/', async (req, res) => {
   try {
