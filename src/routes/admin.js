@@ -274,6 +274,36 @@ router.post('/sync/songkick-sitemap', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /admin/enrich/auto - Start auto-enrichment (survives across requests)
+router.post('/enrich/auto', authMiddleware, async (req, res) => {
+  try {
+    const { interval = 10000 } = req.query;
+    const enricher = require('../services/eventEnricher');
+    const started = enricher.startAutoEnrichment(parseInt(interval));
+    res.json({ 
+      message: started ? 'Auto-enrichment started' : 'Already running',
+      interval: parseInt(interval),
+      status: enricher.isAutoEnrichmentRunning() ? 'running' : 'idle'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /admin/enrich/auto/status - Check auto-enrichment status
+router.get('/enrich/auto/status', authMiddleware, async (req, res) => {
+  try {
+    const enricher = require('../services/eventEnricher');
+    const stats = await enricher.getIncompleteStats();
+    res.json({ 
+      running: enricher.isAutoEnrichmentRunning(),
+      stats
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /admin/enrich/continuous - Run enrichment continuously until done
 router.post('/enrich/continuous', authMiddleware, async (req, res) => {
   try {

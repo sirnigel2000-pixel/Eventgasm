@@ -450,3 +450,61 @@ module.exports = {
   runContinuousEnrichment,
   stopContinuousEnrichment
 };
+
+// Self-scheduling enrichment using setInterval
+let enrichInterval = null;
+
+function startAutoEnrichment(intervalMs = 5000) {
+  if (enrichInterval) {
+    console.log('[Enricher] Auto-enrichment already running');
+    return false;
+  }
+  
+  console.log('[Enricher] Starting auto-enrichment, batch every', intervalMs, 'ms');
+  
+  enrichInterval = setInterval(async () => {
+    try {
+      const stats = await getIncompleteStats();
+      const remaining = parseInt(stats.missing_coords);
+      
+      if (remaining < 100) {
+        console.log('[Enricher] Auto-enrichment complete! Remaining:', remaining);
+        stopAutoEnrichment();
+        return;
+      }
+      
+      // Run small batch (won't timeout)
+      await enrichEvents(25);
+      
+    } catch (error) {
+      console.error('[Enricher] Auto batch error:', error.message);
+    }
+  }, intervalMs);
+  
+  return true;
+}
+
+function stopAutoEnrichment() {
+  if (enrichInterval) {
+    clearInterval(enrichInterval);
+    enrichInterval = null;
+    console.log('[Enricher] Auto-enrichment stopped');
+  }
+}
+
+function isAutoEnrichmentRunning() {
+  return enrichInterval !== null;
+}
+
+// Auto-start on server boot if there's work to do
+setTimeout(async () => {
+  const stats = await getIncompleteStats();
+  if (parseInt(stats.missing_coords) > 1000) {
+    console.log('[Enricher] Auto-starting enrichment on boot...');
+    startAutoEnrichment(10000); // Every 10 seconds
+  }
+}, 30000); // Wait 30s after server starts
+
+module.exports.startAutoEnrichment = startAutoEnrichment;
+module.exports.stopAutoEnrichment = stopAutoEnrichment;
+module.exports.isAutoEnrichmentRunning = isAutoEnrichmentRunning;
