@@ -106,7 +106,7 @@ export default function MapScreen({ navigation, route }) {
         max_lat: maxLat.toFixed(4),
         min_lng: minLng.toFixed(4),
         max_lng: maxLng.toFixed(4),
-        limit: 500,
+        limit: 1500,
       };
 
       if (filters.category) params.category = filters.category;

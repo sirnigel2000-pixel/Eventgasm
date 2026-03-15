@@ -98,7 +98,7 @@ router.get('/', async (req, res) => {
         maxLat: parseFloat(max_lat),
         minLng: parseFloat(min_lng),
         maxLng: parseFloat(max_lng),
-        limit: Math.min(parseInt(limit), 500), // Cap at 500 for map performance
+        limit: Math.min(parseInt(limit), 2000), // Cap at 2000 for map
         offset: parseInt(offset),
         category,
         startDate: start_date,
