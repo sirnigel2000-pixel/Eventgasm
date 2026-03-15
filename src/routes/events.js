@@ -163,8 +163,8 @@ router.get('/recommended', async (req, res) => {
     
     // Filter out garbage/placeholder events
     const garbagePatterns = [
-      /^deposit/i,
-      /^\$?\d+\.?\d*$/,  // Just a number/price
+      /deposit/i,           // Any deposit (playoff deposits, season ticket deposits)
+      /^\$?\d+\.?\d*$/,     // Just a number/price
       /^test/i,
       /^placeholder/i,
       /^tbd$/i,
@@ -175,6 +175,14 @@ router.get('/recommended', async (req, res) => {
       /private event/i,
       /staff only/i,
       /internal/i,
+      /season ticket/i,
+      /membership/i,
+      /parking pass/i,
+      /waitlist/i,
+      /presale/i,
+      /access pass/i,
+      /suite rental/i,
+      /vip upgrade/i,
     ];
     events = events.filter(e => {
       const title = (e.title || '').trim();

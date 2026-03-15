@@ -167,7 +167,7 @@ const SwipeScreen = ({ navigation }) => {
       
       if (response.data.success) {
         // Filter out garbage events
-        const garbageWords = ['deposit', 'test', 'placeholder', 'tbd', 'tba', 'private', 'staff only'];
+        const garbageWords = ['deposit', 'test', 'placeholder', 'tbd', 'tba', 'private', 'staff only', 'season ticket', 'parking pass', 'waitlist', 'presale', 'membership', 'vip upgrade', 'suite rental'];
         let newEvents = (response.data.events || [])
           .filter(e => {
             const title = (e.title || '').toLowerCase();
