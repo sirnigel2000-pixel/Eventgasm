@@ -350,8 +350,8 @@ async function runContinuousEnrichment() {
             }
           }
           
-          // Mark as processed if we can't find location (prevent re-processing)
-          await pool.query(`UPDATE events SET country = 'UNKNOWN' WHERE id = $1 AND country IS NULL`, [event.id]);
+          // Mark as processed by setting city to 'UNKNOWN' (prevent re-processing)
+          await pool.query(`UPDATE events SET city = 'UNKNOWN' WHERE id = $1`, [event.id]);
         } catch (e) {}
       }
       
