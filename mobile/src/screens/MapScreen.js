@@ -81,11 +81,12 @@ export default function MapScreen({ navigation, route }) {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
+        // Start at user's state level (zoomed enough to see state bubble)
         const userRegion = {
-          latitude: 39.8283, // Start at US center to show all states
-          longitude: -98.5795,
-          latitudeDelta: 50,
-          longitudeDelta: 60,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 8, // State level - shows their state bubble
+          longitudeDelta: 8,
         };
         setRegion(userRegion);
       } else {
@@ -295,22 +296,21 @@ export default function MapScreen({ navigation, route }) {
         )}
       </View>
 
-      {/* Zoom out button when viewing events */}
-      {viewMode === 'events' && (
-        <TouchableOpacity
-          style={styles.zoomOutButton}
-          onPress={() => {
-            mapRef.current?.animateToRegion({
-              latitude: 39.8283,
-              longitude: -98.5795,
-              latitudeDelta: 50,
-              longitudeDelta: 60,
-            }, 500);
-          }}
-        >
-          <Ionicons name="globe-outline" size={24} color={colors.primary} />
-        </TouchableOpacity>
-      )}
+      {/* Country view button - always visible */}
+      <TouchableOpacity
+        style={styles.zoomOutButton}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          mapRef.current?.animateToRegion({
+            latitude: 39.8283,
+            longitude: -98.5795,
+            latitudeDelta: 50,
+            longitudeDelta: 60,
+          }, 500);
+        }}
+      >
+        <Ionicons name="globe-outline" size={24} color={colors.primary} />
+      </TouchableOpacity>
 
       {/* My location button */}
       <TouchableOpacity
