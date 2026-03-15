@@ -281,3 +281,62 @@ module.exports = {
   startScheduler,
   getStatus
 };
+
+// Auto-run enrichment every 15 minutes
+const eventEnricher = safeRequire('./eventEnricher', 'Event Enricher');
+const titleParser = safeRequire('./titleParser', 'Title Parser');
+
+async function runAutoEnrichment() {
+  console.log('[Scheduler] Running auto-enrichment...');
+  try {
+    // Run title-based enrichment
+    if (titleParser) {
+      const { pool } = require('../db');
+      const { extractCityFromTitle } = titleParser;
+      const { fillLocation } = require('./geocoder');
+      
+      const result = await pool.query(`
+        SELECT id, title, venue_name 
+        FROM events 
+        WHERE city IS NULL 
+        LIMIT 500
+      `);
+      
+      let updated = 0;
+      for (const event of result.rows) {
+        try {
+          const location = extractCityFromTitle(event.title);
+          if (location?.city) {
+            const filled = await fillLocation({
+              city: location.city,
+              state: location.state,
+              country: location.country || 'US'
+            });
+            
+            if (filled.latitude) {
+              await pool.query(`
+                UPDATE events 
+                SET city = $1, state = $2, country = $3, latitude = $4, longitude = $5
+                WHERE id = $6
+              `, [filled.city || location.city, filled.state, 
+                  filled.country || 'US', filled.latitude, filled.longitude, event.id]);
+              updated++;
+            }
+          }
+        } catch (e) {}
+      }
+      console.log(`[Scheduler] Title enrichment: ${updated} updated`);
+    }
+    
+    // Run URL-based enrichment
+    if (eventEnricher?.enrichEvents) {
+      await eventEnricher.enrichEvents(200);
+    }
+  } catch (error) {
+    console.error('[Scheduler] Enrichment error:', error.message);
+  }
+}
+
+// Schedule enrichment every 15 minutes
+cron.schedule('*/15 * * * *', () => runAutoEnrichment());
+console.log('[Scheduler] Auto-enrichment scheduled every 15 min');
