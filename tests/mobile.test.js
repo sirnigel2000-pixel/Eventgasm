@@ -134,6 +134,19 @@ function testApiConfig() {
       assert(timeout >= 15000, `Timeout too low: ${timeout}ms`);
     }
   });
+
+  // BUG: API interceptor used wrong storage key
+  test('API interceptor uses correct auth key', () => {
+    const apiContent = fs.readFileSync(path.join(MOBILE_DIR, 'src/services/api.js'), 'utf8');
+    const authContent = fs.readFileSync(path.join(MOBILE_DIR, 'src/context/AuthContext.js'), 'utf8');
+    
+    // Find auth key in AuthContext
+    const authKeyMatch = authContent.match(/AUTH_KEY\s*=\s*['"]([^'"]+)['"]/);
+    if (authKeyMatch) {
+      const authKey = authKeyMatch[1];
+      assert(apiContent.includes(authKey), `API should use AUTH_KEY '${authKey}' from AuthContext`);
+    }
+  });
 }
 
 // ============================================
