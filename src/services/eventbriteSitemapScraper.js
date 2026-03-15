@@ -154,11 +154,45 @@ async function syncAll() {
         const eventId = url.match(/tickets-(\d+)/)?.[1];
         if (!eventId) return 'skip';
         
-        const details = await fetchEventDetails(url);
-        if (!details || !details.title) return 'skip';
+        let details = await fetchEventDetails(url);
+        if (!details) details = {};
         
-        // Skip if missing critical data
-        if (!details.start_time && !details.city) return 'skip';
+        // Try to fill missing data before giving up
+        
+        // 1. If no title, try from URL
+        if (!details.title) {
+          const titleSlug = url.match(/\/e\/([^-]+-[^-]+-[^-]+)/)?.[1];
+          if (titleSlug) {
+            details.title = titleSlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          }
+        }
+        if (!details.title) return 'skip'; // Can't proceed without title
+        
+        // 2. If no city, try extracting from URL/title
+        if (!details.city) {
+          const extracted = extractLocationFromText(url, details.title);
+          if (extracted) {
+            details.city = extracted.city;
+            details.state = extracted.state || details.state;
+          }
+        }
+        
+        // 3. If have city but no coords, geocode
+        if (details.city && !details.latitude) {
+          const geo = await geocodeLocation(details.city, details.state, details.country);
+          if (geo) {
+            details.latitude = geo.latitude;
+            details.longitude = geo.longitude;
+          }
+        }
+        
+        // 4. If no date, set to 30 days from now (better than nothing)
+        if (!details.start_time) {
+          details.start_time = new Date(Date.now() + 30*24*60*60*1000);
+        }
+        
+        // Final check - must have city
+        if (!details.city) return 'skip';
         
         try {
           await Event.upsert({
@@ -201,6 +235,45 @@ async function syncAll() {
   
   console.log(`[Eventbrite] ====== COMPLETE: ${totalAdded} quality events added ======`);
   return totalAdded;
+}
+
+// Geocode city to get coordinates
+async function geocodeLocation(city, state, country = 'US') {
+  if (!city) return null;
+  try {
+    const query = encodeURIComponent(`${city}, ${state || ''} ${country}`.trim());
+    const response = await axios.get(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+      { headers: { 'User-Agent': 'Eventgasm/1.0' }, timeout: 5000 }
+    );
+    if (response.data?.[0]) {
+      return {
+        latitude: parseFloat(response.data[0].lat),
+        longitude: parseFloat(response.data[0].lon),
+        city: response.data[0].address?.city || city,
+        state: response.data[0].address?.state || state,
+      };
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Try to extract location from URL or title
+function extractLocationFromText(url, title) {
+  // Common patterns: "Event in City, ST" or URL like /d/ca--los-angeles/
+  const urlMatch = url.match(/\/d\/([a-z]{2})--([a-z-]+)\//i);
+  if (urlMatch) {
+    const state = urlMatch[1].toUpperCase();
+    const city = urlMatch[2].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    return { city, state };
+  }
+  
+  const titleMatch = title?.match(/in ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),?\s*([A-Z]{2})?/);
+  if (titleMatch) {
+    return { city: titleMatch[1], state: titleMatch[2] };
+  }
+  
+  return null;
 }
 
 module.exports = { syncAll };

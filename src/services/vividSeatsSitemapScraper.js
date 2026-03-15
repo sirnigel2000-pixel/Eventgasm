@@ -132,3 +132,22 @@ async function syncAll() {
 }
 
 module.exports = { syncAll };
+
+// Geocode helper
+async function geocodeLocation(city, state, country = 'US') {
+  if (!city) return null;
+  try {
+    const query = encodeURIComponent(`${city}, ${state || ''} ${country}`.trim());
+    const response = await axios.get(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+      { headers: { 'User-Agent': 'Eventgasm/1.0' }, timeout: 5000 }
+    );
+    if (response.data?.[0]) {
+      return {
+        latitude: parseFloat(response.data[0].lat),
+        longitude: parseFloat(response.data[0].lon),
+      };
+    }
+  } catch (e) {}
+  return null;
+}
