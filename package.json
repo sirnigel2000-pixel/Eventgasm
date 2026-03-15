@@ -7,7 +7,11 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "sync": "node -e \"require('./src/services/syncManager').runFullSync()\"",
-    "sync:quick": "node -e \"require('./src/services/syncManager').runQuickSync()\""
+    "sync:quick": "node -e \"require('./src/services/syncManager').runQuickSync()\"",
+    "test": "node tests/api.test.js",
+    "test:mobile": "node tests/mobile.test.js",
+    "test:all": "npm run test:mobile && npm run test",
+    "predeploy": "./scripts/pre-deploy.sh"
   },
   "keywords": [
     "events",
