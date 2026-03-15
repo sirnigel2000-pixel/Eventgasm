@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.small,
+    ...shadows.sm,
   },
   statusText: { fontSize: 14, fontWeight: '500', color: colors.text },
   
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderRadius: 20,
     marginHorizontal: 4,
-    ...shadows.small,
+    ...shadows.sm,
   },
   filterPillActive: { backgroundColor: colors.primary },
   filterText: { fontSize: 13, color: colors.text },
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.medium,
+    ...shadows.md,
     marginBottom: 8,
   },
   
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.small,
+    ...shadows.sm,
   },
   bubbleCount: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    ...shadows.large,
+    ...shadows.lg,
   },
   dragHandle: {
     alignItems: 'center',
