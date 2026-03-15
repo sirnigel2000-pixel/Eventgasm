@@ -277,8 +277,8 @@ async function updateEvent(id, data) {
   addField('venue_name', data.venue_name);
   addField('latitude', data.latitude);
   addField('longitude', data.longitude);
-  addField('start_time', data.start_time);
-  addField('end_time', data.end_time);
+  if (data.start_time && !isNaN(new Date(data.start_time).getTime())) addField('start_time', data.start_time);
+  if (data.end_time && !isNaN(new Date(data.end_time).getTime())) addField('end_time', data.end_time);
   addField('description', data.description);
   addField('image_url', data.image_url);
   
