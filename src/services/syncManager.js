@@ -282,61 +282,95 @@ module.exports = {
   getStatus
 };
 
-// Auto-run enrichment every 15 minutes
+// Continuous enrichment - runs until all events processed
 const eventEnricher = safeRequire('./eventEnricher', 'Event Enricher');
 const titleParser = safeRequire('./titleParser', 'Title Parser');
 
-async function runAutoEnrichment() {
-  console.log('[Scheduler] Running auto-enrichment...');
+let enrichmentRunning = false;
+
+async function runContinuousEnrichment() {
+  if (enrichmentRunning) {
+    console.log('[Enricher] Already running, skipping...');
+    return;
+  }
+  
+  enrichmentRunning = true;
+  console.log('[Enricher] Starting continuous enrichment...');
+  
+  const { pool } = require('../db');
+  const { fillLocation } = require('./geocoder');
+  const { extractCityFromTitle } = titleParser || {};
+  
+  let totalUpdated = 0;
+  let batchNum = 0;
+  
   try {
-    // Run title-based enrichment
-    if (titleParser) {
-      const { pool } = require('../db');
-      const { extractCityFromTitle } = titleParser;
-      const { fillLocation } = require('./geocoder');
+    while (true) {
+      batchNum++;
+      let batchUpdated = 0;
       
+      // Get batch of incomplete events
       const result = await pool.query(`
-        SELECT id, title, venue_name 
+        SELECT id, title, venue_name, ticket_url
         FROM events 
         WHERE city IS NULL 
-        LIMIT 500
+        LIMIT 200
       `);
       
-      let updated = 0;
+      if (result.rows.length === 0) {
+        console.log(`[Enricher] ✅ Complete! All events processed. Total updated: ${totalUpdated}`);
+        break;
+      }
+      
+      console.log(`[Enricher] Batch ${batchNum}: Processing ${result.rows.length} events...`);
+      
       for (const event of result.rows) {
         try {
-          const location = extractCityFromTitle(event.title);
-          if (location?.city) {
-            const filled = await fillLocation({
-              city: location.city,
-              state: location.state,
-              country: location.country || 'US'
-            });
-            
-            if (filled.latitude) {
-              await pool.query(`
-                UPDATE events 
-                SET city = $1, state = $2, country = $3, latitude = $4, longitude = $5
-                WHERE id = $6
-              `, [filled.city || location.city, filled.state, 
-                  filled.country || 'US', filled.latitude, filled.longitude, event.id]);
-              updated++;
+          // Try title parsing first
+          if (extractCityFromTitle) {
+            const location = extractCityFromTitle(event.title);
+            if (location?.city) {
+              const filled = await fillLocation({
+                city: location.city,
+                state: location.state,
+                country: location.country || 'US'
+              });
+              
+              if (filled.latitude) {
+                await pool.query(`
+                  UPDATE events 
+                  SET city = $1, state = $2, country = $3, latitude = $4, longitude = $5
+                  WHERE id = $6
+                `, [filled.city || location.city, filled.state, 
+                    filled.country || 'US', filled.latitude, filled.longitude, event.id]);
+                batchUpdated++;
+                totalUpdated++;
+                continue;
+              }
             }
           }
+          
+          // Mark as processed if we can't find location (prevent re-processing)
+          await pool.query(`UPDATE events SET country = 'UNKNOWN' WHERE id = $1 AND country IS NULL`, [event.id]);
         } catch (e) {}
       }
-      console.log(`[Scheduler] Title enrichment: ${updated} updated`);
-    }
-    
-    // Run URL-based enrichment
-    if (eventEnricher?.enrichEvents) {
-      await eventEnricher.enrichEvents(200);
+      
+      console.log(`[Enricher] Batch ${batchNum} complete: ${batchUpdated} updated, ${totalUpdated} total`);
+      
+      // Small delay between batches to avoid overwhelming APIs
+      await new Promise(r => setTimeout(r, 1000));
     }
   } catch (error) {
-    console.error('[Scheduler] Enrichment error:', error.message);
+    console.error('[Enricher] Error:', error.message);
+  } finally {
+    enrichmentRunning = false;
   }
 }
 
-// Schedule enrichment every 15 minutes
-cron.schedule('*/15 * * * *', () => runAutoEnrichment());
-console.log('[Scheduler] Auto-enrichment scheduled every 15 min');
+// Start continuous enrichment on server boot (after 30 sec delay)
+setTimeout(() => {
+  runContinuousEnrichment();
+}, 30000);
+
+// Also expose for manual trigger
+module.exports.runContinuousEnrichment = runContinuousEnrichment;
