@@ -309,12 +309,12 @@ async function runContinuousEnrichment() {
       batchNum++;
       let batchUpdated = 0;
       
-      // Get batch of incomplete events
+      // Get batch of incomplete events - large batches for speed
       const result = await pool.query(`
         SELECT id, title, venue_name, ticket_url
         FROM events 
         WHERE city IS NULL 
-        LIMIT 200
+        LIMIT 500
       `);
       
       if (result.rows.length === 0) {
@@ -357,8 +357,8 @@ async function runContinuousEnrichment() {
       
       console.log(`[Enricher] Batch ${batchNum} complete: ${batchUpdated} updated, ${totalUpdated} total`);
       
-      // Small delay between batches to avoid overwhelming APIs
-      await new Promise(r => setTimeout(r, 1000));
+      // Minimal delay - just enough to not block event loop
+      await new Promise(r => setTimeout(r, 50));
     }
   } catch (error) {
     console.error('[Enricher] Error:', error.message);
