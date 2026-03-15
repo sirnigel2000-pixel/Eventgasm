@@ -299,4 +299,50 @@ router.get('/enrich/stats', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /admin/unusable - Count unusable events
+router.get('/unusable', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT COUNT(*) as count FROM events 
+      WHERE title IS NULL OR title = ''
+         OR (city IS NULL OR city IN ('', 'Various', 'Unknown'))
+         OR start_time IS NULL
+         OR start_time < NOW()
+    `);
+    res.json({ unusable: parseInt(result.rows[0].count) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /admin/cleanup - Remove unusable events
+router.delete('/cleanup', authMiddleware, async (req, res) => {
+  try {
+    // Delete events that can't be shown properly
+    const result = await pool.query(`
+      DELETE FROM events 
+      WHERE title IS NULL OR title = ''
+         OR (city IS NULL OR city IN ('', 'Various', 'Unknown'))
+         OR start_time IS NULL
+         OR start_time < NOW()
+      RETURNING id
+    `);
+    
+    const deleted = result.rowCount;
+    console.log(`[Cleanup] Removed ${deleted} unusable events`);
+    
+    // Get new total
+    const countResult = await pool.query('SELECT COUNT(*) FROM events');
+    const remaining = parseInt(countResult.rows[0].count);
+    
+    res.json({ 
+      deleted, 
+      remaining,
+      message: `Removed ${deleted} unusable events. ${remaining} quality events remain.`
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
