@@ -30,7 +30,17 @@ const CATEGORY_COLORS = {
   'Community': '#5856D6', 'default': colors.primary,
 };
 
-const CATEGORIES = ['All', 'Music', 'Sports', 'Arts', 'Comedy', 'Food', 'Family', 'Festival'];
+const CATEGORIES = [
+  { key: 'All', icon: 'apps', label: 'All' },
+  { key: 'Music', icon: 'musical-notes', label: 'Music' },
+  { key: 'Sports', icon: 'football', label: 'Sports' },
+  { key: 'Arts', icon: 'color-palette', label: 'Arts' },
+  { key: 'Comedy', icon: 'happy', label: 'Comedy' },
+  { key: 'Food', icon: 'restaurant', label: 'Food' },
+  { key: 'Family', icon: 'people', label: 'Family' },
+  { key: 'Festival', icon: 'bonfire', label: 'Festival' },
+];
+
 const STATE_VIEW_THRESHOLD = 4;
 
 export default function MapScreen({ navigation }) {
@@ -42,8 +52,10 @@ export default function MapScreen({ navigation }) {
   const [viewMode, setViewMode] = useState('states');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showList, setShowList] = useState(false);
+  const [highlightedEventId, setHighlightedEventId] = useState(null);
   
   const mapRef = useRef(null);
+  const listRef = useRef(null);
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -175,14 +187,27 @@ export default function MapScreen({ navigation }) {
     navigation.navigate('EventDetail', { event });
   };
 
+  // Focus on event and highlight it
   const focusOnEvent = (event) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setHighlightedEventId(event.id);
     mapRef.current?.animateToRegion({
       latitude: event.latitude,
       longitude: event.longitude,
-      latitudeDelta: 0.5,
-      longitudeDelta: 0.5,
+      latitudeDelta: 0.3,
+      longitudeDelta: 0.3,
     }, 300);
+    
+    // Clear highlight after 3 seconds
+    setTimeout(() => setHighlightedEventId(null), 3000);
+  };
+
+  const handleCategorySelect = (cat) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedCategory(cat);
+    if (region && viewMode === 'events') {
+      fetchEventsInRegion(region);
+    }
   };
 
   const getColor = (cat) => CATEGORY_COLORS[cat] || CATEGORY_COLORS.default;
@@ -205,21 +230,49 @@ export default function MapScreen({ navigation }) {
 
   const totalEvents = stateCounts.reduce((sum, s) => sum + s.count, 0);
 
-  const renderEventItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.eventItem} 
-      onPress={() => handleEventPress(item)}
-      onLongPress={() => focusOnEvent(item)}
-    >
-      <View style={[styles.categoryDot, { backgroundColor: getColor(item.category) }]} />
-      <View style={styles.eventInfo}>
-        <Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.eventMeta}>{formatDate(item.start_time)}</Text>
-        {item.venue_name && <Text style={styles.eventVenue} numberOfLines={1}>📍 {item.venue_name}</Text>}
-      </View>
-      <Ionicons name="chevron-forward" size={16} color="#ccc" />
-    </TouchableOpacity>
-  );
+  const renderEventItem = ({ item, index }) => {
+    const isHighlighted = item.id === highlightedEventId;
+    return (
+      <TouchableOpacity 
+        style={[styles.eventItem, isHighlighted && styles.eventItemHighlighted]} 
+        onPress={() => focusOnEvent(item)}
+      >
+        <View style={[styles.categoryDot, { backgroundColor: getColor(item.category) }]} />
+        <View style={styles.eventInfo}>
+          <Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.eventMeta}>{formatDate(item.start_time)}</Text>
+          {item.venue?.name && <Text style={styles.eventVenue} numberOfLines={1}>📍 {item.venue.name}</Text>}
+        </View>
+        <TouchableOpacity 
+          style={styles.goButton}
+          onPress={() => handleEventPress(item)}
+        >
+          <Text style={styles.goButtonText}>View</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
+
+  // Handle list scroll to focus on visible events
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems.length > 0 && showList) {
+      const firstVisible = viewableItems[0].item;
+      if (firstVisible && firstVisible.latitude && firstVisible.longitude) {
+        mapRef.current?.animateToRegion({
+          latitude: firstVisible.latitude,
+          longitude: firstVisible.longitude,
+          latitudeDelta: region?.latitudeDelta || 0.5,
+          longitudeDelta: region?.longitudeDelta || 0.5,
+        }, 200);
+        setHighlightedEventId(firstVisible.id);
+      }
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 80,
+    minimumViewTime: 300,
+  }).current;
 
   if (!region) {
     return (
@@ -233,7 +286,7 @@ export default function MapScreen({ navigation }) {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        style={[styles.map, showList && { height: height * 0.45 }]}
+        style={[styles.map, showList && styles.mapWithList]}
         initialRegion={region}
         onRegionChangeComplete={handleRegionChangeComplete}
         showsUserLocation
@@ -261,9 +314,16 @@ export default function MapScreen({ navigation }) {
           <Marker
             key={event.id}
             coordinate={{ latitude: event.latitude, longitude: event.longitude }}
-            pinColor={getColor(event.category)}
             onPress={() => handleEventPress(event)}
-          />
+          >
+            <View style={[
+              styles.eventMarker,
+              { backgroundColor: getColor(event.category) },
+              event.id === highlightedEventId && styles.eventMarkerHighlighted
+            ]}>
+              <View style={styles.markerDot} />
+            </View>
+          </Marker>
         ))}
       </MapView>
 
@@ -277,24 +337,34 @@ export default function MapScreen({ navigation }) {
         {fetching && <ActivityIndicator size="small" color={colors.primary} style={{marginLeft: 8}} />}
       </View>
 
-      {/* Filter pills - only show when viewing events */}
+      {/* Category filter bar */}
       {viewMode === 'events' && (
         <View style={styles.filterBar}>
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
             data={CATEGORIES}
-            keyExtractor={(item) => item}
+            keyExtractor={(item) => item.key}
+            contentContainerStyle={styles.filterList}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={[styles.filterPill, selectedCategory === item && styles.filterPillActive]}
-                onPress={() => {
-                  setSelectedCategory(item);
-                  if (region) fetchEventsInRegion(region);
-                }}
+                style={[
+                  styles.filterPill, 
+                  selectedCategory === item.key && styles.filterPillActive
+                ]}
+                onPress={() => handleCategorySelect(item.key)}
               >
-                <Text style={[styles.filterText, selectedCategory === item && styles.filterTextActive]}>
-                  {item}
+                <Ionicons 
+                  name={item.icon} 
+                  size={14} 
+                  color={selectedCategory === item.key ? '#fff' : colors.text} 
+                  style={styles.filterIcon}
+                />
+                <Text style={[
+                  styles.filterText, 
+                  selectedCategory === item.key && styles.filterTextActive
+                ]}>
+                  {item.label}
                 </Text>
               </TouchableOpacity>
             )}
@@ -302,7 +372,7 @@ export default function MapScreen({ navigation }) {
         </View>
       )}
 
-      {/* Map controls */}
+      {/* Floating action buttons */}
       <View style={styles.controls}>
         <TouchableOpacity
           style={styles.controlBtn}
@@ -332,36 +402,46 @@ export default function MapScreen({ navigation }) {
         >
           <Ionicons name="locate" size={22} color={colors.primary} />
         </TouchableOpacity>
-
-        {/* List toggle button */}
-        {viewMode === 'events' && (
-          <TouchableOpacity
-            style={[styles.controlBtn, showList && styles.controlBtnActive]}
-            onPress={() => setShowList(!showList)}
-          >
-            <Ionicons name="list" size={22} color={showList ? '#fff' : colors.primary} />
-          </TouchableOpacity>
-        )}
       </View>
+
+      {/* BIG List toggle button - prominent! */}
+      {viewMode === 'events' && (
+        <TouchableOpacity
+          style={[styles.listToggle, showList && styles.listToggleActive]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setShowList(!showList);
+          }}
+        >
+          <Ionicons 
+            name={showList ? "map" : "list"} 
+            size={20} 
+            color={showList ? '#fff' : colors.primary} 
+          />
+          <Text style={[styles.listToggleText, showList && styles.listToggleTextActive]}>
+            {showList ? 'Map' : `List (${events.length})`}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Event list panel */}
       {viewMode === 'events' && showList && (
         <View style={styles.listPanel}>
           <View style={styles.listHeader}>
             <Text style={styles.listTitle}>
-              {sortedEvents.length} Events {userLocation ? '(by distance)' : ''}
+              📍 {sortedEvents.length} Events {userLocation ? '· Closest First' : ''}
             </Text>
-            <TouchableOpacity onPress={() => setShowList(false)}>
-              <Ionicons name="close" size={22} color="#666" />
-            </TouchableOpacity>
           </View>
           
           <FlatList
+            ref={listRef}
             data={sortedEvents}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderEventItem}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
           />
         </View>
       )}
@@ -373,6 +453,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   centered: { justifyContent: 'center', alignItems: 'center' },
   map: { flex: 1 },
+  mapWithList: { height: height * 0.4 },
   
   topBar: {
     position: 'absolute',
@@ -388,31 +469,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadows.sm,
   },
-  statusText: { fontSize: 14, fontWeight: '500', color: colors.text },
+  statusText: { fontSize: 14, fontWeight: '600', color: colors.text },
   
   filterBar: {
     position: 'absolute',
-    top: 110,
+    top: 108,
     left: 0,
     right: 0,
+  },
+  filterList: {
     paddingHorizontal: 12,
   },
   filterPill: {
-    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 20,
     marginHorizontal: 4,
     ...shadows.sm,
   },
-  filterPillActive: { backgroundColor: colors.primary },
-  filterText: { fontSize: 13, color: colors.text },
+  filterPillActive: { 
+    backgroundColor: colors.primary,
+  },
+  filterIcon: {
+    marginRight: 4,
+  },
+  filterText: { fontSize: 13, color: colors.text, fontWeight: '500' },
   filterTextActive: { color: '#fff', fontWeight: '600' },
   
   controls: {
     position: 'absolute',
     right: 16,
-    bottom: 100,
+    top: 170,
   },
   controlBtn: {
     width: 44,
@@ -424,8 +514,34 @@ const styles = StyleSheet.create({
     ...shadows.md,
     marginBottom: 10,
   },
-  controlBtnActive: {
+  
+  // Big prominent list toggle
+  listToggle: {
+    position: 'absolute',
+    bottom: 100,
+    left: '50%',
+    marginLeft: -70,
+    width: 140,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    ...shadows.lg,
+  },
+  listToggleActive: {
     backgroundColor: colors.primary,
+  },
+  listToggleText: {
+    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  listToggleTextActive: {
+    color: '#fff',
   },
   
   bubble: {
@@ -436,40 +552,80 @@ const styles = StyleSheet.create({
   },
   bubbleCount: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   
+  // Custom event markers
+  eventMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  eventMarkerHighlighted: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 3,
+    transform: [{ scale: 1.2 }],
+  },
+  markerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  
   listPanel: {
     flex: 1,
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    marginTop: -20,
     ...shadows.lg,
   },
   listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  listTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
-  listContent: { paddingHorizontal: 16 },
+  listTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
+  listContent: { paddingHorizontal: 16, paddingBottom: 100 },
   
   eventItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#f5f5f5',
   },
+  eventItemHighlighted: {
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+  },
   categoryDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     marginRight: 12,
   },
   eventInfo: { flex: 1 },
-  eventTitle: { fontSize: 15, fontWeight: '500', color: colors.text },
+  eventTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
   eventMeta: { fontSize: 12, color: colors.primary, marginTop: 2 },
   eventVenue: { fontSize: 11, color: '#888', marginTop: 2 },
+  
+  goButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  goButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });
