@@ -1,11 +1,35 @@
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cache, cacheKey } from './cache';
 
-const API_BASE = 'https://eventgasm.com/api';
+const API_BASE = __DEV__ 
+  ? 'http://localhost:4600/api'
+  : 'https://eventgasm.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
+});
+
+// Add auth interceptor to include user_id in requests
+api.interceptors.request.use(async (config) => {
+  try {
+    const userData = await AsyncStorage.getItem('user');
+    if (userData) {
+      const user = JSON.parse(userData);
+      // Add user_id to params for GET requests
+      if (config.method === 'get' && user.id) {
+        config.params = { ...config.params, user_id: user.id };
+      }
+      // Add user_id to body for POST/PUT/PATCH requests
+      if (['post', 'put', 'patch'].includes(config.method) && user.id) {
+        config.data = { ...config.data, user_id: user.id };
+      }
+    }
+  } catch (e) {
+    // Ignore auth errors
+  }
+  return config;
 });
 
 export async function fetchEvents(params = {}) {

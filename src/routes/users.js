@@ -7,9 +7,10 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Create users table if not exists
-const initUsersTable = async () => {
+// Create tables if not exists
+const initTables = async () => {
   try {
+    // Users table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -22,12 +23,44 @@ const initUsersTable = async () => {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log('Users table ready');
+    
+    // User event interactions table (swipe saves)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_event_interactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        event_id UUID NOT NULL,
+        status VARCHAR(50) NOT NULL CHECK (status IN ('going', 'maybe', 'want_to', 'not_interested')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, event_id)
+      )
+    `);
+    
+    // Index for faster queries
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_interactions_user_status 
+      ON user_event_interactions(user_id, status)
+    `);
+    
+    // Friends/connections table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_friends (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        friend_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'blocked')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, friend_id)
+      )
+    `);
+    
+    console.log('Users and interaction tables ready');
   } catch (error) {
-    console.error('Error creating users table:', error);
+    console.error('Error creating tables:', error);
   }
 };
-initUsersTable();
+initTables();
 
 // Sign up - create new user
 router.post('/signup', async (req, res) => {
@@ -214,6 +247,286 @@ router.put('/:id/favorites', async (req, res) => {
   } catch (error) {
     console.error('Update favorites error:', error);
     res.status(500).json({ message: 'Failed to update favorites' });
+  }
+});
+
+// ============================================
+// EVENT INTERACTIONS (Swipe Saves)
+// ============================================
+
+// Save/update an interaction (swipe action)
+router.post('/interactions', async (req, res) => {
+  try {
+    const { user_id, event_id, status } = req.body;
+    
+    if (!user_id || !event_id || !status) {
+      return res.status(400).json({ message: 'user_id, event_id, and status are required' });
+    }
+    
+    const validStatuses = ['going', 'maybe', 'want_to', 'not_interested'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: `status must be one of: ${validStatuses.join(', ')}` });
+    }
+    
+    // Upsert interaction
+    const result = await pool.query(`
+      INSERT INTO user_event_interactions (user_id, event_id, status)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, event_id) 
+      DO UPDATE SET status = $3, updated_at = NOW()
+      RETURNING *
+    `, [user_id, event_id, status]);
+    
+    res.json({ success: true, interaction: result.rows[0] });
+  } catch (error) {
+    console.error('Save interaction error:', error);
+    res.status(500).json({ message: 'Failed to save interaction' });
+  }
+});
+
+// Get user's interactions (with optional status filter)
+router.get('/interactions', async (req, res) => {
+  try {
+    const { user_id, status } = req.query;
+    
+    if (!user_id) {
+      return res.status(400).json({ message: 'user_id is required' });
+    }
+    
+    let query = `
+      SELECT 
+        uei.*,
+        e.title, e.image_url, e.start_time, e.end_time,
+        e.venue_name, e.city, e.state,
+        e.category, e.price_min, e.is_free
+      FROM user_event_interactions uei
+      JOIN events e ON e.id = uei.event_id
+      WHERE uei.user_id = $1
+    `;
+    const params = [user_id];
+    
+    if (status) {
+      query += ` AND uei.status = $2`;
+      params.push(status);
+    }
+    
+    query += ` ORDER BY e.start_time ASC`;
+    
+    const result = await pool.query(query, params);
+    
+    // Transform to event objects with interaction status
+    const events = result.rows.map(row => ({
+      id: row.event_id,
+      title: row.title,
+      image_url: row.image_url,
+      start_time: row.start_time,
+      end_time: row.end_time,
+      venue_name: row.venue_name,
+      city: row.city,
+      state: row.state,
+      category: row.category,
+      price_min: row.price_min,
+      is_free: row.is_free,
+      interaction: {
+        status: row.status,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      },
+    }));
+    
+    res.json({ success: true, events });
+  } catch (error) {
+    console.error('Get interactions error:', error);
+    res.status(500).json({ message: 'Failed to get interactions' });
+  }
+});
+
+// Delete an interaction
+router.delete('/interactions/:event_id', async (req, res) => {
+  try {
+    const { event_id } = req.params;
+    const { user_id } = req.query;
+    
+    if (!user_id) {
+      return res.status(400).json({ message: 'user_id is required' });
+    }
+    
+    await pool.query(
+      'DELETE FROM user_event_interactions WHERE user_id = $1 AND event_id = $2',
+      [user_id, event_id]
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete interaction error:', error);
+    res.status(500).json({ message: 'Failed to delete interaction' });
+  }
+});
+
+// Get friends going to an event
+router.get('/interactions/event/:event_id/friends', async (req, res) => {
+  try {
+    const { event_id } = req.params;
+    const { user_id } = req.query;
+    
+    if (!user_id) {
+      return res.status(400).json({ message: 'user_id is required' });
+    }
+    
+    // Get friends who are going or interested in this event
+    const result = await pool.query(`
+      SELECT 
+        u.id, u.name, u.avatar_url,
+        uei.status
+      FROM user_event_interactions uei
+      JOIN users u ON u.id = uei.user_id
+      JOIN user_friends uf ON (
+        (uf.user_id = $1 AND uf.friend_id = uei.user_id)
+        OR (uf.friend_id = $1 AND uf.user_id = uei.user_id)
+      )
+      WHERE uei.event_id = $2 
+        AND uei.status IN ('going', 'maybe')
+        AND uf.status = 'accepted'
+    `, [user_id, event_id]);
+    
+    res.json({ success: true, friends: result.rows });
+  } catch (error) {
+    console.error('Get friends for event error:', error);
+    res.status(500).json({ message: 'Failed to get friends' });
+  }
+});
+
+// ============================================
+// FRIENDS
+// ============================================
+
+// Send friend request
+router.post('/friends/request', async (req, res) => {
+  try {
+    const { user_id, friend_id } = req.body;
+    
+    if (!user_id || !friend_id) {
+      return res.status(400).json({ message: 'user_id and friend_id are required' });
+    }
+    
+    if (user_id === friend_id) {
+      return res.status(400).json({ message: 'Cannot friend yourself' });
+    }
+    
+    // Check if already friends or pending
+    const existing = await pool.query(`
+      SELECT * FROM user_friends 
+      WHERE (user_id = $1 AND friend_id = $2) 
+         OR (user_id = $2 AND friend_id = $1)
+    `, [user_id, friend_id]);
+    
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ 
+        message: 'Friend request already exists',
+        status: existing.rows[0].status 
+      });
+    }
+    
+    const result = await pool.query(`
+      INSERT INTO user_friends (user_id, friend_id, status)
+      VALUES ($1, $2, 'pending')
+      RETURNING *
+    `, [user_id, friend_id]);
+    
+    res.json({ success: true, request: result.rows[0] });
+  } catch (error) {
+    console.error('Send friend request error:', error);
+    res.status(500).json({ message: 'Failed to send friend request' });
+  }
+});
+
+// Accept/reject friend request
+router.patch('/friends/request/:request_id', async (req, res) => {
+  try {
+    const { request_id } = req.params;
+    const { status } = req.body; // 'accepted' or 'blocked'
+    
+    if (!['accepted', 'blocked'].includes(status)) {
+      return res.status(400).json({ message: 'status must be accepted or blocked' });
+    }
+    
+    const result = await pool.query(`
+      UPDATE user_friends SET status = $1 WHERE id = $2 RETURNING *
+    `, [status, request_id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Friend request not found' });
+    }
+    
+    res.json({ success: true, request: result.rows[0] });
+  } catch (error) {
+    console.error('Update friend request error:', error);
+    res.status(500).json({ message: 'Failed to update friend request' });
+  }
+});
+
+// Get user's friends
+router.get('/:id/friends', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.query; // Optional: filter by 'pending' or 'accepted'
+    
+    let query = `
+      SELECT 
+        uf.id as request_id,
+        uf.status,
+        uf.created_at,
+        CASE 
+          WHEN uf.user_id = $1 THEN uf.friend_id 
+          ELSE uf.user_id 
+        END as friend_id,
+        u.name, u.email, u.avatar_url
+      FROM user_friends uf
+      JOIN users u ON u.id = CASE 
+        WHEN uf.user_id = $1 THEN uf.friend_id 
+        ELSE uf.user_id 
+      END
+      WHERE (uf.user_id = $1 OR uf.friend_id = $1)
+    `;
+    const params = [id];
+    
+    if (status) {
+      query += ` AND uf.status = $2`;
+      params.push(status);
+    }
+    
+    query += ` ORDER BY uf.created_at DESC`;
+    
+    const result = await pool.query(query, params);
+    
+    res.json({ success: true, friends: result.rows });
+  } catch (error) {
+    console.error('Get friends error:', error);
+    res.status(500).json({ message: 'Failed to get friends' });
+  }
+});
+
+// Search users to add as friends
+router.get('/search', async (req, res) => {
+  try {
+    const { q, user_id } = req.query;
+    
+    if (!q || q.length < 2) {
+      return res.status(400).json({ message: 'Search query must be at least 2 characters' });
+    }
+    
+    const result = await pool.query(`
+      SELECT id, name, email, avatar_url
+      FROM users
+      WHERE (LOWER(name) LIKE $1 OR LOWER(email) LIKE $1)
+        AND id != $2
+      LIMIT 20
+    `, [`%${q.toLowerCase()}%`, user_id || '00000000-0000-0000-0000-000000000000']);
+    
+    res.json({ success: true, users: result.rows });
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).json({ message: 'Failed to search users' });
   }
 });
 

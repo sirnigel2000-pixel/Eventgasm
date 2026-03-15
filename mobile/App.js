@@ -5,12 +5,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
+import SwipeScreen from './src/screens/SwipeScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import EventDetailScreen from './src/screens/EventDetailScreen';
 import MapScreen from './src/screens/MapScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import SocialScreen from './src/screens/SocialScreen';
 import SavedScreen from './src/screens/SavedScreen';
+import ListsScreen from './src/screens/ListsScreen';
 import TonightScreen from './src/screens/TonightScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import OnboardingScreen, { checkOnboardingComplete } from './src/screens/OnboardingScreen';
@@ -28,25 +30,25 @@ function MainTabs() {
         headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          if (route.name === 'HomeTab') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'TonightTab') {
-            iconName = focused ? 'flame' : 'flame-outline';
+          if (route.name === 'DiscoverTab') {
+            iconName = focused ? 'albums' : 'albums-outline';
+          } else if (route.name === 'SearchTab') {
+            iconName = focused ? 'search' : 'search-outline';
+          } else if (route.name === 'ListsTab') {
+            iconName = focused ? 'list' : 'list-outline';
           } else if (route.name === 'SocialTab') {
             iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'SavedTab') {
-            iconName = focused ? 'heart' : 'heart-outline';
           } else if (route.name === 'ProfileTab') {
             iconName = focused ? 'person' : 'person-outline';
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#667eea',
-        tabBarInactiveTintColor: '#888',
+        tabBarActiveTintColor: '#000',
+        tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
           backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#f0f0f0',
+          borderTopWidth: 0.5,
+          borderTopColor: '#C6C6C8',
           paddingBottom: 5,
           paddingTop: 5,
           height: 60,
@@ -58,24 +60,24 @@ function MainTabs() {
       })}
     >
       <Tab.Screen 
-        name="HomeTab" 
-        component={HomeScreen}
-        options={{ tabBarLabel: 'Home' }}
+        name="DiscoverTab" 
+        component={SwipeScreen}
+        options={{ tabBarLabel: 'Discover' }}
       />
       <Tab.Screen 
-        name="TonightTab" 
-        component={TonightScreen}
-        options={{ tabBarLabel: 'Tonight' }}
+        name="SearchTab" 
+        component={HomeScreen}
+        options={{ tabBarLabel: 'Search' }}
+      />
+      <Tab.Screen 
+        name="ListsTab" 
+        component={ListsScreen}
+        options={{ tabBarLabel: 'Lists' }}
       />
       <Tab.Screen 
         name="SocialTab" 
         component={SocialScreen}
-        options={{ tabBarLabel: 'Social' }}
-      />
-      <Tab.Screen 
-        name="SavedTab" 
-        component={SavedScreen}
-        options={{ tabBarLabel: 'Saved' }}
+        options={{ tabBarLabel: 'Friends' }}
       />
       <Tab.Screen 
         name="ProfileTab" 
