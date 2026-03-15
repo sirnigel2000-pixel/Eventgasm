@@ -1,5 +1,15 @@
 const { pool } = require('../db');
 
+// Filter to only show usable events in the app
+const USABLE_FILTER = `
+  AND city IS NOT NULL 
+  AND city NOT IN ('', 'Various', 'Unknown')
+  AND start_time IS NOT NULL
+  AND start_time >= NOW()
+  AND title IS NOT NULL 
+  AND title != ''
+`;
+
 class Event {
   // Upsert event (insert or update if exists)
   static async upsert(eventData) {
@@ -209,7 +219,7 @@ class Event {
   static async findByLocation({ city, state, limit = 50, offset = 0, category, startDate, endDate, isFree, source }) {
     let query = `
       SELECT * FROM events
-      WHERE start_time >= NOW()
+      WHERE 1=1 ${USABLE_FILTER}
     `;
     const params = [];
     let paramIndex = 1;
@@ -265,7 +275,7 @@ class Event {
   static async findFreeEvents({ state, city, category, limit = 50, offset = 0 }) {
     let query = `
       SELECT * FROM events
-      WHERE start_time >= NOW()
+      WHERE 1=1 ${USABLE_FILTER}
         AND is_free = true
     `;
     const params = [];
@@ -300,7 +310,7 @@ class Event {
   static async search({ query: searchQuery, limit = 50, offset = 0, isFree, source, category }) {
     let query = `
       SELECT * FROM events
-      WHERE start_time >= NOW()
+      WHERE 1=1 ${USABLE_FILTER}
         AND (
           title ILIKE $1
           OR description ILIKE $1
@@ -370,7 +380,7 @@ class Event {
   static async getTrending({ limit = 20, state, source }) {
     let query = `
       SELECT * FROM events
-      WHERE start_time >= NOW() AND start_time <= NOW() + INTERVAL '7 days'
+      WHERE 1=1 ${USABLE_FILTER} AND start_time <= NOW() + INTERVAL '7 days'
     `;
     const params = [];
     let paramIndex = 1;
@@ -399,7 +409,7 @@ class Event {
     const result = await pool.query(`
       SELECT category, COUNT(*) as count
       FROM events
-      WHERE start_time >= NOW()
+      WHERE 1=1 ${USABLE_FILTER}
       GROUP BY category
       ORDER BY count DESC
     `);
@@ -411,7 +421,7 @@ class Event {
     const result = await pool.query(`
       SELECT source, COUNT(*) as count
       FROM events
-      WHERE start_time >= NOW()
+      WHERE 1=1 ${USABLE_FILTER}
       GROUP BY source
       ORDER BY count DESC
     `);
