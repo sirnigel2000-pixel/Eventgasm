@@ -11,9 +11,18 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Helper: Add variety to event list - mix categories, shuffle within distance bands
+// Helper: Add variety to event list - dedupe titles, mix categories, shuffle
 function addVariety(events) {
-  if (events.length < 10) return events;
+  if (events.length < 5) return events;
+  
+  // FIRST: Dedupe by title (same show, different showtimes)
+  const seenTitles = new Set();
+  events = events.filter(e => {
+    const titleKey = (e.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 30);
+    if (seenTitles.has(titleKey)) return false;
+    seenTitles.add(titleKey);
+    return true;
+  });
   
   // Group by category
   const byCategory = {};
@@ -21,6 +30,14 @@ function addVariety(events) {
     const cat = e.category || 'Other';
     if (!byCategory[cat]) byCategory[cat] = [];
     byCategory[cat].push(e);
+  });
+  
+  // Shuffle each category
+  Object.values(byCategory).forEach(arr => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
   });
   
   // Interleave categories for variety
@@ -31,7 +48,9 @@ function addVariety(events) {
   
   while (added && result.length < events.length) {
     added = false;
-    for (const cat of categories) {
+    // Randomize category order each round
+    const shuffledCats = [...categories].sort(() => Math.random() - 0.5);
+    for (const cat of shuffledCats) {
       if (byCategory[cat].length > index) {
         result.push(byCategory[cat][index]);
         added = true;
@@ -40,17 +59,7 @@ function addVariety(events) {
     index++;
   }
   
-  // Add some randomization to top 20 (keeps it fresh on reload)
-  const top = result.slice(0, 20);
-  const rest = result.slice(20);
-  
-  // Fisher-Yates shuffle on top section
-  for (let i = top.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [top[i], top[j]] = [top[j], top[i]];
-  }
-  
-  return [...top, ...rest];
+  return result;
 }
 
 // Helper: Group events by title + venue to consolidate multiple showtimes

@@ -154,18 +154,33 @@ const SwipeScreen = ({ navigation }) => {
     try {
       if (reset) setLoading(true);
       
-      const params = { limit: 50, offset: reset ? 0 : events.length };
+      const params = { limit: 100, offset: reset ? 0 : events.length };
       if (location) {
         params.lat = location.latitude;
         params.lng = location.longitude;
         params.radius = filters.maxDistance;
       }
+      // Add randomization seed to get different results
+      params.seed = Date.now();
 
       const response = await api.get('/events/recommended', { params });
       
       if (response.data.success) {
         let newEvents = (response.data.events || [])
           .filter(e => e.image || e.title?.length > 5);
+        
+        // DEDUPE: Remove events we've already seen
+        const existingIds = new Set(events.map(e => e.id));
+        newEvents = newEvents.filter(e => !existingIds.has(e.id));
+        
+        // DEDUPE: Remove duplicate titles (same show different times)
+        const seenTitles = new Set();
+        newEvents = newEvents.filter(e => {
+          const titleKey = (e.title || '').toLowerCase().trim();
+          if (seenTitles.has(titleKey)) return false;
+          seenTitles.add(titleKey);
+          return true;
+        });
         
         if (reset) {
           setEvents(newEvents);
@@ -176,6 +191,14 @@ const SwipeScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Failed to fetch events:', error);
+      // Try fallback on error
+      try {
+        const fallback = await api.get('/events', { params: { limit: 50 } });
+        if (fallback.data.success && reset) {
+          setEvents(fallback.data.events || []);
+          setCurrentIndex(0);
+        }
+      } catch (e) {}
     } finally {
       setLoading(false);
     }
