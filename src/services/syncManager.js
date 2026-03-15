@@ -313,7 +313,7 @@ async function runContinuousEnrichment() {
       console.log('[Enricher] Running query...'); const result = await pool.query(`
         SELECT id, title, venue_name, ticket_url
         FROM events 
-        WHERE city IS NULL 
+        WHERE (city IS NULL OR city = '' OR city = 'null') 
         LIMIT 500
       `);
       
