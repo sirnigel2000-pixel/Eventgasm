@@ -204,7 +204,7 @@ const ListsScreen = ({ navigation }) => {
       ) : (
         <FlatList
           data={events}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
           renderItem={renderEventItem}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyList}

@@ -522,7 +522,7 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <FlatList
         data={events}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
         renderItem={({ item }) => (
           <EventCard event={item} onPress={handleEventPress} />
         )}
