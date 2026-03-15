@@ -20,7 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
+import Haptics from '../utils/haptics';
 import { format } from 'date-fns';
 import { colors, typography, borderRadius, spacing, shadows } from '../theme';
 import { useAuth } from '../context/AuthContext';

@@ -29,7 +29,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import * as Haptics from 'expo-haptics';
+import Haptics from '../utils/haptics';
 import { colors, typography, shadows, borderRadius, spacing, swipe } from '../theme';
 import { format } from 'date-fns';
 

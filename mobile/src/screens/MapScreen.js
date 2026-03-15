@@ -12,10 +12,10 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { MapView, Marker } from '../components/CrossPlatformMap';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import * as Haptics from 'expo-haptics';
+import Haptics from '../utils/haptics';
 import api from '../services/api';
 import { colors, shadows } from '../theme';
 import { format } from 'date-fns';

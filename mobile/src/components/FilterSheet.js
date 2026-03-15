@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import * as Haptics from 'expo-haptics';
+import Haptics from '../utils/haptics';
 import { colors, typography, borderRadius, spacing, shadows } from '../theme';
 
 const CATEGORIES = [

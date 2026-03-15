@@ -1,58 +1,49 @@
-import * as Haptics from 'expo-haptics';
+/**
+ * Cross-platform haptics - works on native, no-op on web
+ */
 import { Platform } from 'react-native';
 
-// Haptic feedback utilities
-// Only runs on iOS/Android (no-op on web)
+let Haptics = null;
 
-export const haptics = {
-  // Light tap - for selections, toggles
-  light: () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  },
+if (Platform.OS !== 'web') {
+  Haptics = require('expo-haptics');
+}
 
-  // Medium tap - for button presses
-  medium: () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  },
-
-  // Heavy tap - for important actions
-  heavy: () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    }
-  },
-
-  // Selection changed - for picker/filter changes
-  selection: () => {
-    if (Platform.OS !== 'web') {
-      Haptics.selectionAsync();
-    }
-  },
-
-  // Success - for completed actions (favorite saved, etc)
-  success: () => {
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-  },
-
-  // Warning - for destructive previews
-  warning: () => {
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    }
-  },
-
-  // Error - for failed actions
-  error: () => {
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  },
+export const impactAsync = (style = 'Medium') => {
+  if (Haptics) {
+    const feedbackStyle = Haptics.ImpactFeedbackStyle?.[style] || Haptics.ImpactFeedbackStyle?.Medium;
+    return Haptics.impactAsync(feedbackStyle);
+  }
+  return Promise.resolve();
 };
 
-export default haptics;
+export const notificationAsync = (type = 'Success') => {
+  if (Haptics) {
+    const feedbackType = Haptics.NotificationFeedbackType?.[type] || Haptics.NotificationFeedbackType?.Success;
+    return Haptics.notificationAsync(feedbackType);
+  }
+  return Promise.resolve();
+};
+
+export const selectionAsync = () => {
+  if (Haptics) {
+    return Haptics.selectionAsync();
+  }
+  return Promise.resolve();
+};
+
+export default {
+  impactAsync,
+  notificationAsync,
+  selectionAsync,
+  ImpactFeedbackStyle: {
+    Light: 'Light',
+    Medium: 'Medium',
+    Heavy: 'Heavy',
+  },
+  NotificationFeedbackType: {
+    Success: 'Success',
+    Warning: 'Warning',
+    Error: 'Error',
+  },
+};
