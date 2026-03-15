@@ -412,7 +412,7 @@ async function fillStatesFromCoords() {
           
           if (stateComp) {
             await pool.query(
-              \`UPDATE events SET state = $1, city = CASE WHEN city IS NULL OR city = '' OR city = 'UNKNOWN' THEN $2 ELSE city END WHERE id = $3\`,
+              `UPDATE events SET state = $1, city = CASE WHEN city IS NULL OR city = '' OR city = 'UNKNOWN' THEN $2 ELSE city END WHERE id = $3`,
               [stateComp.long_name, cityComp?.long_name || null, event.id]
             );
             totalUpdated++;

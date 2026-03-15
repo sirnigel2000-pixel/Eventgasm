@@ -89,9 +89,9 @@ async function syncAll() {
       try {
         await Event.upsert({
           source: 'concerts',
-          source_id: \`concert_\${venue.name.toLowerCase().replace(/\\s+/g, '_').substring(0, 20)}_\${date.toISOString().split('T')[0]}_\${i}\`,
-          title: \`\${artist} Live\`,
-          description: \`\${artist} performing live at \${venue.name}\`,
+          source_id: `concert_${venue.name.toLowerCase().replace(/\s+/g, '_').substring(0, 20)}_${date.toISOString().split('T')[0]}_${i}`,
+          title: `${artist} Live`,
+          description: `${artist} performing live at ${venue.name}`,
           category: 'Music',
           subcategory: 'Concert',
           venue_name: venue.name,
@@ -106,7 +106,7 @@ async function syncAll() {
     }
   }
   
-  console.log(\`[Concerts] ====== SYNC COMPLETE: +\${totalAdded} events ======\`);
+  console.log(`[Concerts] ====== SYNC COMPLETE: +${totalAdded} events ======`);
   return totalAdded;
 }
 
