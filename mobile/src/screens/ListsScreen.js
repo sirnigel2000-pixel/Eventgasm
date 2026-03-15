@@ -33,7 +33,7 @@ const LISTS = [
 ];
 
 const ListsScreen = ({ navigation }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isSignedIn: isAuthenticated } = useAuth();
   const [activeList, setActiveList] = useState('going');
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);

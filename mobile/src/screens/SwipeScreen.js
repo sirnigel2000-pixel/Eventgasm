@@ -37,7 +37,7 @@ const SWIPE_ACTIONS = {
 };
 
 const SwipeScreen = ({ navigation }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isSignedIn: isAuthenticated } = useAuth();
   const [events, setEvents] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
