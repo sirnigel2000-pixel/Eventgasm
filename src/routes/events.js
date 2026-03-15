@@ -186,7 +186,7 @@ router.get('/recommended', async (req, res) => {
     ];
     events = events.filter(e => {
       const title = (e.title || '').trim();
-      if (title.length < 5) return false;
+      if (!title) return false; // Must have a title
       for (const pattern of garbagePatterns) {
         if (pattern.test(title)) return false;
       }

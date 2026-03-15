@@ -170,13 +170,13 @@ const SwipeScreen = ({ navigation }) => {
         const garbageWords = ['deposit', 'test', 'placeholder', 'tbd', 'tba', 'private', 'staff only', 'season ticket', 'parking pass', 'waitlist', 'presale', 'membership', 'vip upgrade', 'suite rental'];
         let newEvents = (response.data.events || [])
           .filter(e => {
-            const title = (e.title || '').toLowerCase();
-            if (title.length < 5) return false;
+            const title = (e.title || '').toLowerCase().trim();
+            if (!title) return false;
             if (/^\$?\d+\.?\d*$/.test(title)) return false; // Just a price
             for (const word of garbageWords) {
               if (title.includes(word)) return false;
             }
-            return e.image || title.length > 10;
+            return true;
           });
         
         // DEDUPE: Remove events we've already seen
