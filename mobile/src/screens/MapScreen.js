@@ -1,11 +1,11 @@
 /**
- * MapScreen - Dynamic event map with bounding box queries
+ * MapScreen - State overview with drill-down to events
  * 
  * Features:
- * - Fetches events based on visible map region
- * - Debounced region change handler
- * - Category color-coded markers
- * - Filter support
+ * - Shows state bubbles with event counts when zoomed out
+ * - Tap state to zoom in
+ * - Shows clustered events when zoomed in
+ * - Smooth transitions
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -19,8 +19,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
-import ClusteredMapView from 'react-native-map-clustering';
+import MapView, { Marker, Callout, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -47,30 +46,37 @@ const CATEGORY_COLORS = {
   'default': colors.primary,
 };
 
+// Zoom threshold - above this delta, show state view
+const STATE_VIEW_THRESHOLD = 5;
+
 export default function MapScreen({ navigation, route }) {
   const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [stateCounts, setStateCounts] = useState([]);
+  const [region, setRegion] = useState(null);
   const [fetching, setFetching] = useState(false);
-  const [region, setRegion] = useState({
-    latitude: 39.8283,  // Center of US
-    longitude: -98.5795,
-    latitudeDelta: 30,
-    longitudeDelta: 30,
-  });
-  const [filters, setFilters] = useState({
-    category: route?.params?.category || null,
-    startDate: route?.params?.startDate || null,
-    endDate: route?.params?.endDate || null,
-  });
-  
+  const [filters, setFilters] = useState({});
+  const [viewMode, setViewMode] = useState('states'); // 'states' or 'events'
   const mapRef = useRef(null);
-  const debounceTimer = useRef(null);
+  const debounceRef = useRef(null);
 
+  // Load state counts on mount
   useEffect(() => {
-    loadInitialLocation();
+    loadStateCounts();
+    initializeLocation();
   }, []);
 
-  const loadInitialLocation = async () => {
+  const loadStateCounts = async () => {
+    try {
+      const response = await api.get('/events/counts/by-state');
+      if (response.data.success) {
+        setStateCounts(response.data.states);
+      }
+    } catch (error) {
+      console.error('Error loading state counts:', error);
+    }
+  };
+
+  const initializeLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
@@ -78,37 +84,58 @@ export default function MapScreen({ navigation, route }) {
         const userRegion = {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
-          latitudeDelta: 0.5,
-          longitudeDelta: 0.5,
+          latitudeDelta: 20, // Start zoomed out to see states
+          longitudeDelta: 20,
         };
         setRegion(userRegion);
-        fetchEventsInRegion(userRegion);
       } else {
-        // Use default US view
-        fetchEventsInRegion(region);
+        // Default to US center
+        setRegion({
+          latitude: 39.8283,
+          longitude: -98.5795,
+          latitudeDelta: 40,
+          longitudeDelta: 40,
+        });
       }
     } catch (error) {
-      console.error('Error getting location:', error);
-      fetchEventsInRegion(region);
+      setRegion({
+        latitude: 39.8283,
+        longitude: -98.5795,
+        latitudeDelta: 40,
+        longitudeDelta: 40,
+      });
     }
   };
 
-  const fetchEventsInRegion = useCallback(async (mapRegion) => {
+  const handleRegionChangeComplete = useCallback((newRegion) => {
+    setRegion(newRegion);
+    
+    // Switch view mode based on zoom
+    if (newRegion.latitudeDelta > STATE_VIEW_THRESHOLD) {
+      setViewMode('states');
+      setEvents([]); // Clear events when zoomed out
+    } else {
+      setViewMode('events');
+      // Debounce event fetching
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        fetchEventsInRegion(newRegion);
+      }, 300);
+    }
+  }, []);
+
+  const fetchEventsInRegion = async (mapRegion) => {
     setFetching(true);
     try {
-      // Calculate bounding box from region
       const minLat = mapRegion.latitude - mapRegion.latitudeDelta / 2;
       const maxLat = mapRegion.latitude + mapRegion.latitudeDelta / 2;
       const minLng = mapRegion.longitude - mapRegion.longitudeDelta / 2;
       const maxLng = mapRegion.longitude + mapRegion.longitudeDelta / 2;
 
-      // Dynamic limit based on zoom level
-      // Zoomed out (large delta) = fewer events, zoomed in = more
-      let limit = 200; // default
-      if (mapRegion.latitudeDelta < 0.5) limit = 500;      // city level
-      else if (mapRegion.latitudeDelta < 2) limit = 300;   // metro area
-      else if (mapRegion.latitudeDelta < 10) limit = 200;  // state level
-      else limit = 150; // country level - just show clusters
+      // Dynamic limit based on zoom
+      let limit = 200;
+      if (mapRegion.latitudeDelta < 0.5) limit = 400;
+      else if (mapRegion.latitudeDelta < 2) limit = 300;
 
       const params = {
         min_lat: minLat.toFixed(4),
@@ -118,49 +145,36 @@ export default function MapScreen({ navigation, route }) {
         limit,
       };
 
-      if (filters.category) params.category = filters.category;
-      if (filters.startDate) params.start_date = filters.startDate;
-      if (filters.endDate) params.end_date = filters.endDate;
-
-      const response = await api.get('/events', { params, timeout: 45000 });
+      const response = await api.get('/events', { params, timeout: 30000 });
       
       if (response.data.success) {
-        // Filter events that have valid coordinates (check both formats)
         const eventsWithCoords = (response.data.events || [])
-          .filter(e => 
-            (e.latitude && e.longitude) || 
-            (e.venue?.coordinates?.lat && e.venue?.coordinates?.lng)
-          )
+          .filter(e => e.latitude && e.longitude)
           .map(e => ({
             ...e,
-            // Normalize coordinates to top level
-            latitude: e.latitude || e.venue?.coordinates?.lat,
-            longitude: e.longitude || e.venue?.coordinates?.lng,
+            latitude: parseFloat(e.latitude),
+            longitude: parseFloat(e.longitude),
           }));
         setEvents(eventsWithCoords);
       }
     } catch (error) {
-      console.error('Error fetching map events:', error);
+      console.error('Error fetching events:', error);
     } finally {
-      setLoading(false);
       setFetching(false);
     }
-  }, [filters]);
+  };
 
-  // Debounced region change handler
-  const handleRegionChangeComplete = useCallback((newRegion) => {
-    setRegion(newRegion);
+  const handleStatePress = (state) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
-    // Clear existing timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-    
-    // Set new debounced fetch
-    debounceTimer.current = setTimeout(() => {
-      fetchEventsInRegion(newRegion);
-    }, 500); // 500ms debounce
-  }, [fetchEventsInRegion]);
+    // Zoom to state
+    mapRef.current?.animateToRegion({
+      latitude: state.lat,
+      longitude: state.lng,
+      latitudeDelta: 3,
+      longitudeDelta: 3,
+    }, 500);
+  };
 
   const handleMarkerPress = (event) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -172,6 +186,7 @@ export default function MapScreen({ navigation, route }) {
   };
 
   const formatEventDate = (dateString) => {
+    if (!dateString) return '';
     try {
       return format(new Date(dateString), 'MMM d, h:mm a');
     } catch {
@@ -179,25 +194,23 @@ export default function MapScreen({ navigation, route }) {
     }
   };
 
-  const goToUserLocation = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      const location = await Location.getCurrentPositionAsync({});
-      const userRegion = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.3,
-        longitudeDelta: 0.3,
-      };
-      mapRef.current?.animateToRegion(userRegion, 500);
-    } catch (error) {
-      console.error('Error getting location:', error);
-    }
+  const formatCount = (count) => {
+    if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
+    return count.toString();
   };
 
-  if (loading) {
+  const getStateBubbleSize = (count) => {
+    // Scale bubble size based on count
+    const minSize = 40;
+    const maxSize = 80;
+    const maxCount = Math.max(...stateCounts.map(s => s.count), 1);
+    const scale = Math.sqrt(count / maxCount);
+    return minSize + (maxSize - minSize) * scale;
+  };
+
+  if (!region) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading map...</Text>
       </View>
@@ -206,7 +219,7 @@ export default function MapScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <ClusteredMapView
+      <MapView
         ref={mapRef}
         style={styles.map}
         initialRegion={region}
@@ -214,23 +227,37 @@ export default function MapScreen({ navigation, route }) {
         showsUserLocation
         showsCompass={false}
         rotateEnabled={false}
-        clusterColor={colors.primary}
-        clusterTextColor="#fff"
-        clusterFontFamily="System"
-        radius={50}
-        minZoomLevel={3}
-        maxZoomLevel={20}
-        extent={512}
-        animationEnabled={true}
-        spiralEnabled={true}
-        superClusterRef={{ current: null }}
       >
-        {events.map((event) => (
+        {/* State bubbles when zoomed out */}
+        {viewMode === 'states' && stateCounts.map((state) => (
+          <Marker
+            key={state.state}
+            coordinate={{ latitude: state.lat, longitude: state.lng }}
+            onPress={() => handleStatePress(state)}
+          >
+            <View style={[
+              styles.stateBubble,
+              { 
+                width: getStateBubbleSize(state.count),
+                height: getStateBubbleSize(state.count),
+                borderRadius: getStateBubbleSize(state.count) / 2,
+              }
+            ]}>
+              <Text style={styles.stateCount}>{formatCount(state.count)}</Text>
+              <Text style={styles.stateName} numberOfLines={1}>
+                {state.state.length > 10 ? state.state.substring(0, 8) + '...' : state.state}
+              </Text>
+            </View>
+          </Marker>
+        ))}
+
+        {/* Event markers when zoomed in */}
+        {viewMode === 'events' && events.map((event) => (
           <Marker
             key={event.id}
             coordinate={{
-              latitude: parseFloat(event.latitude),
-              longitude: parseFloat(event.longitude),
+              latitude: event.latitude,
+              longitude: event.longitude,
             }}
             pinColor={getCategoryColor(event.category)}
             onCalloutPress={() => handleMarkerPress(event)}
@@ -248,73 +275,60 @@ export default function MapScreen({ navigation, route }) {
                     📍 {event.venue_name}
                   </Text>
                 )}
-                {event.is_free && (
-                  <Text style={styles.calloutFree}>FREE</Text>
-                )}
-                <Text style={styles.calloutTap}>Tap for details →</Text>
               </View>
             </Callout>
           </Marker>
         ))}
-      </ClusteredMapView>
+      </MapView>
 
-      {/* Header */}
-      <SafeAreaView style={styles.header} edges={['top']}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-
-        <View style={styles.countBadge}>
-          {fetching ? (
-            <ActivityIndicator size="small" color={colors.textInverse} />
-          ) : (
-            <Text style={styles.countText}>
-              {events.length} {events.length === 500 ? '+' : ''} events
-            </Text>
-          )}
-        </View>
-
-        <TouchableOpacity 
-          style={styles.locationButton}
-          onPress={goToUserLocation}
-        >
-          <Ionicons name="locate" size={22} color={colors.primary} />
-        </TouchableOpacity>
-      </SafeAreaView>
-
-      {/* Legend */}
-      <View style={styles.legend}>
-        <View style={styles.legendItems}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#e91e63' }]} />
-            <Text style={styles.legendText}>Music</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
-            <Text style={styles.legendText}>Sports</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#9c27b0' }]} />
-            <Text style={styles.legendText}>Arts</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#FF3B30' }]} />
-            <Text style={styles.legendText}>Festival</Text>
-          </View>
-        </View>
+      {/* Status bar */}
+      <View style={styles.statusBar}>
+        {fetching ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Text style={styles.statusText}>
+            {viewMode === 'states' 
+              ? `${stateCounts.length} states • Tap to explore`
+              : `${events.length} events nearby`
+            }
+          </Text>
+        )}
       </View>
 
-      {/* Zoom hint when zoomed out */}
-      {region.latitudeDelta > 10 && events.length >= 500 && (
-        <View style={styles.zoomHint}>
-          <Text style={styles.zoomHintText}>
-            Zoom in to see more events
-          </Text>
-        </View>
+      {/* Zoom out button when viewing events */}
+      {viewMode === 'events' && (
+        <TouchableOpacity
+          style={styles.zoomOutButton}
+          onPress={() => {
+            mapRef.current?.animateToRegion({
+              latitude: 39.8283,
+              longitude: -98.5795,
+              latitudeDelta: 40,
+              longitudeDelta: 40,
+            }, 500);
+          }}
+        >
+          <Ionicons name="globe-outline" size={24} color={colors.primary} />
+        </TouchableOpacity>
       )}
+
+      {/* My location button */}
+      <TouchableOpacity
+        style={styles.locationButton}
+        onPress={async () => {
+          try {
+            const location = await Location.getCurrentPositionAsync({});
+            mapRef.current?.animateToRegion({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+              latitudeDelta: 0.5,
+              longitudeDelta: 0.5,
+            }, 500);
+          } catch {}
+        }}
+      >
+        <Ionicons name="locate" size={24} color={colors.primary} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -324,133 +338,95 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
+  centered: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    ...typography.subheadline,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
   },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+  loadingText: {
+    marginTop: 12,
+    color: colors.textSecondary,
+    fontSize: 16,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.md,
-  },
-  countBadge: {
+  stateBubble: {
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    minWidth: 100,
-    alignItems: 'center',
-    ...shadows.md,
-  },
-  countText: {
-    ...typography.subheadlineBold,
-    color: colors.textInverse,
-  },
-  locationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.md,
+    ...shadows.medium,
+  },
+  stateCount: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  stateName: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 9,
+    marginTop: 1,
   },
   callout: {
-    width: 220,
+    width: 200,
+    padding: 8,
   },
   calloutContent: {
-    padding: spacing.sm,
+    flex: 1,
   },
   calloutTitle: {
-    ...typography.headline,
-    marginBottom: spacing.xs,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
   },
   calloutDate: {
-    ...typography.subheadline,
-    color: colors.info,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
+    fontSize: 12,
+    color: colors.primary,
+    marginBottom: 2,
   },
   calloutVenue: {
-    ...typography.caption1,
+    fontSize: 11,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
   },
-  calloutFree: {
-    ...typography.caption1,
-    fontWeight: '700',
-    color: colors.swipeGoing,
-    marginBottom: spacing.xs,
-  },
-  calloutTap: {
-    ...typography.caption2,
-    color: colors.textTertiary,
-    fontStyle: 'italic',
-  },
-  legend: {
+  statusBar: {
     position: 'absolute',
-    bottom: 40,
-    left: spacing.lg,
-    right: spacing.lg,
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    ...shadows.sm,
-  },
-  legendItems: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  legendItem: {
-    flexDirection: 'row',
+    top: 60,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: 'center',
+    ...shadows.small,
   },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: spacing.xs,
+  statusText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
   },
-  legendText: {
-    ...typography.caption1,
-    color: colors.textSecondary,
-  },
-  zoomHint: {
+  zoomOutButton: {
     position: 'absolute',
-    bottom: 110,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+    bottom: 100,
+    right: 16,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.medium,
   },
-  zoomHintText: {
-    ...typography.caption1,
-    color: colors.textInverse,
+  locationButton: {
+    position: 'absolute',
+    bottom: 160,
+    right: 16,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.medium,
   },
 });
