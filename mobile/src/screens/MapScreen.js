@@ -1,65 +1,78 @@
 /**
- * MapScreen - State overview with drill-down to events
- * 
- * Features:
- * - Shows state bubbles with event counts when zoomed out
- * - Tap state to zoom in
- * - Shows clustered events when zoomed in
- * - Smooth transitions
+ * MapScreen - Interactive map with state bubbles, markers, and list view
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity,
-  Pressable,
+  FlatList,
   Dimensions,
-  ActivityIndicator
+  ActivityIndicator,
+  Animated,
+  PanResponder,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Callout, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Callout } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import api from '../services/api';
-import { colors, typography, borderRadius, spacing, shadows } from '../theme';
+import { colors, shadows } from '../theme';
 import { format } from 'date-fns';
 
 const { width, height } = Dimensions.get('window');
+const LIST_MIN_HEIGHT = 60;
+const LIST_MAX_HEIGHT = height * 0.6;
 
 const CATEGORY_COLORS = {
-  'Music': '#e91e63',
-  'Concert': '#e91e63',
-  'Sports': '#34C759',
-  'Arts & Theatre': '#9c27b0',
-  'Arts': '#9c27b0',
-  'Theater': '#9c27b0',
-  'Comedy': '#FF9500',
-  'Food & Drink': '#795548',
-  'Food': '#795548',
-  'Family': '#007AFF',
-  'Festival': '#FF3B30',
-  'Festivals': '#FF3B30',
-  'Community': '#5856D6',
-  'default': colors.primary,
+  'Music': '#e91e63', 'Concert': '#e91e63', 'Sports': '#34C759',
+  'Arts & Theatre': '#9c27b0', 'Arts': '#9c27b0', 'Theater': '#9c27b0',
+  'Comedy': '#FF9500', 'Food & Drink': '#795548', 'Food': '#795548',
+  'Family': '#007AFF', 'Festival': '#FF3B30', 'Festivals': '#FF3B30',
+  'Community': '#5856D6', 'default': colors.primary,
 };
 
-// Zoom threshold - above this delta, show state view
-const STATE_VIEW_THRESHOLD = 5;
+const CATEGORIES = ['All', 'Music', 'Sports', 'Arts', 'Comedy', 'Food', 'Family', 'Festival'];
+const STATE_VIEW_THRESHOLD = 4;
 
-export default function MapScreen({ navigation, route }) {
+export default function MapScreen({ navigation }) {
   const [events, setEvents] = useState([]);
   const [stateCounts, setStateCounts] = useState([]);
   const [region, setRegion] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const [fetching, setFetching] = useState(false);
-  const [filters, setFilters] = useState({});
-  const [viewMode, setViewMode] = useState('states'); // 'states' or 'events'
+  const [viewMode, setViewMode] = useState('states');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [showFilters, setShowFilters] = useState(false);
+  
   const mapRef = useRef(null);
   const debounceRef = useRef(null);
+  const listHeight = useRef(new Animated.Value(LIST_MIN_HEIGHT)).current;
+  const [listExpanded, setListExpanded] = useState(false);
 
-  // Load state counts on mount
+  // Pan responder for list drag
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        const newHeight = listExpanded 
+          ? LIST_MAX_HEIGHT - gestureState.dy 
+          : LIST_MIN_HEIGHT - gestureState.dy;
+        listHeight.setValue(Math.max(LIST_MIN_HEIGHT, Math.min(LIST_MAX_HEIGHT, newHeight)));
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const shouldExpand = gestureState.dy < -50 || (listExpanded && gestureState.dy < 50);
+        Animated.spring(listHeight, {
+          toValue: shouldExpand ? LIST_MAX_HEIGHT : LIST_MIN_HEIGHT,
+          useNativeDriver: false,
+        }).start();
+        setListExpanded(shouldExpand);
+      },
+    })
+  ).current;
+
   useEffect(() => {
     loadStateCounts();
     initializeLocation();
@@ -69,7 +82,7 @@ export default function MapScreen({ navigation, route }) {
     try {
       const response = await api.get('/events/counts/by-state');
       if (response.data.success) {
-        setStateCounts(response.data.states);
+        setStateCounts(response.data.states || []);
       }
     } catch (error) {
       console.error('Error loading state counts:', error);
@@ -81,24 +94,25 @@ export default function MapScreen({ navigation, route }) {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
-        // Start at user's state level (zoomed enough to see state bubble)
-        const userRegion = {
+        setUserLocation({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
-          latitudeDelta: 8, // State level - shows their state bubble
-          longitudeDelta: 8,
-        };
-        setRegion(userRegion);
+        });
+        setRegion({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 6,
+          longitudeDelta: 6,
+        });
       } else {
-        // Default to US center - zoomed out enough to hint at HI/AK
         setRegion({
           latitude: 39.8283,
           longitude: -98.5795,
-          latitudeDelta: 50,
-          longitudeDelta: 60,
+          latitudeDelta: 40,
+          longitudeDelta: 40,
         });
       }
-    } catch (error) {
+    } catch {
       setRegion({
         latitude: 39.8283,
         longitude: -98.5795,
@@ -111,42 +125,33 @@ export default function MapScreen({ navigation, route }) {
   const handleRegionChangeComplete = useCallback((newRegion) => {
     setRegion(newRegion);
     
-    // Switch view mode based on zoom
     if (newRegion.latitudeDelta > STATE_VIEW_THRESHOLD) {
       setViewMode('states');
-      setEvents([]); // Clear events when zoomed out
+      setEvents([]);
     } else {
       setViewMode('events');
-      // Debounce event fetching
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        fetchEventsInRegion(newRegion);
-      }, 300);
+      debounceRef.current = setTimeout(() => fetchEventsInRegion(newRegion), 250);
     }
-  }, []);
+  }, [selectedCategory]);
 
   const fetchEventsInRegion = async (mapRegion) => {
     setFetching(true);
     try {
-      const minLat = mapRegion.latitude - mapRegion.latitudeDelta / 2;
-      const maxLat = mapRegion.latitude + mapRegion.latitudeDelta / 2;
-      const minLng = mapRegion.longitude - mapRegion.longitudeDelta / 2;
-      const maxLng = mapRegion.longitude + mapRegion.longitudeDelta / 2;
-
-      // Dynamic limit based on zoom
-      let limit = 200;
-      if (mapRegion.latitudeDelta < 0.5) limit = 400;
-      else if (mapRegion.latitudeDelta < 2) limit = 300;
-
+      const padding = 0.1;
       const params = {
-        min_lat: minLat.toFixed(4),
-        max_lat: maxLat.toFixed(4),
-        min_lng: minLng.toFixed(4),
-        max_lng: maxLng.toFixed(4),
-        limit,
+        min_lat: (mapRegion.latitude - mapRegion.latitudeDelta / 2 - padding).toFixed(4),
+        max_lat: (mapRegion.latitude + mapRegion.latitudeDelta / 2 + padding).toFixed(4),
+        min_lng: (mapRegion.longitude - mapRegion.longitudeDelta / 2 - padding).toFixed(4),
+        max_lng: (mapRegion.longitude + mapRegion.longitudeDelta / 2 + padding).toFixed(4),
+        limit: mapRegion.latitudeDelta < 1 ? 300 : 200,
       };
 
-      const response = await api.get('/events', { params, timeout: 30000 });
+      if (selectedCategory !== 'All') {
+        params.category = selectedCategory;
+      }
+
+      const response = await api.get('/events', { params, timeout: 15000 });
       
       if (response.data.success) {
         const eventsWithCoords = (response.data.events || [])
@@ -165,55 +170,78 @@ export default function MapScreen({ navigation, route }) {
     }
   };
 
+  // Sort events by distance from user
+  const sortedEvents = useMemo(() => {
+    if (!userLocation) return events;
+    return [...events].sort((a, b) => {
+      const distA = Math.sqrt(
+        Math.pow(a.latitude - userLocation.latitude, 2) + 
+        Math.pow(a.longitude - userLocation.longitude, 2)
+      );
+      const distB = Math.sqrt(
+        Math.pow(b.latitude - userLocation.latitude, 2) + 
+        Math.pow(b.longitude - userLocation.longitude, 2)
+      );
+      return distA - distB;
+    });
+  }, [events, userLocation]);
+
   const handleStatePress = (state) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    // Zoom to state
     mapRef.current?.animateToRegion({
       latitude: state.lat,
       longitude: state.lng,
-      latitudeDelta: 3,
-      longitudeDelta: 3,
-    }, 500);
+      latitudeDelta: 2.5,
+      longitudeDelta: 2.5,
+    }, 400);
   };
 
-  const handleMarkerPress = (event) => {
+  const handleEventPress = (event) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate('EventDetail', { event });
   };
 
-  const getCategoryColor = (category) => {
-    return CATEGORY_COLORS[category] || CATEGORY_COLORS.default;
+  const focusOnEvent = (event) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    mapRef.current?.animateToRegion({
+      latitude: event.latitude,
+      longitude: event.longitude,
+      latitudeDelta: 0.5,
+      longitudeDelta: 0.5,
+    }, 300);
   };
 
-  const formatEventDate = (dateString) => {
-    if (!dateString) return '';
-    try {
-      return format(new Date(dateString), 'MMM d, h:mm a');
-    } catch {
-      return '';
-    }
+  const getColor = (cat) => CATEGORY_COLORS[cat] || CATEGORY_COLORS.default;
+  const formatDate = (d) => d ? format(new Date(d), 'MMM d · h:mm a') : '';
+  const formatCount = (c) => c >= 1000 ? `${(c/1000).toFixed(1)}k` : c.toString();
+  
+  const getBubbleSize = (count) => {
+    const max = Math.max(...stateCounts.map(s => s.count), 1);
+    return 35 + 35 * Math.sqrt(count / max);
   };
 
-  const formatCount = (count) => {
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}k`;
-    return count.toString();
-  };
+  const totalEvents = stateCounts.reduce((sum, s) => sum + s.count, 0);
 
-  const getStateBubbleSize = (count) => {
-    // Scale bubble size based on count
-    const minSize = 40;
-    const maxSize = 80;
-    const maxCount = Math.max(...stateCounts.map(s => s.count), 1);
-    const scale = Math.sqrt(count / maxCount);
-    return minSize + (maxSize - minSize) * scale;
-  };
+  const renderEventItem = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.eventItem} 
+      onPress={() => handleEventPress(item)}
+      onLongPress={() => focusOnEvent(item)}
+    >
+      <View style={[styles.categoryDot, { backgroundColor: getColor(item.category) }]} />
+      <View style={styles.eventInfo}>
+        <Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.eventMeta}>{formatDate(item.start_time)}</Text>
+        {item.venue_name && <Text style={styles.eventVenue} numberOfLines={1}>📍 {item.venue_name}</Text>}
+      </View>
+      <Ionicons name="chevron-forward" size={16} color="#ccc" />
+    </TouchableOpacity>
+  );
 
   if (!region) {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading map...</Text>
       </View>
     );
   }
@@ -227,168 +255,131 @@ export default function MapScreen({ navigation, route }) {
         onRegionChangeComplete={handleRegionChangeComplete}
         showsUserLocation
         showsCompass={false}
-        rotateEnabled={false}
       >
-        {/* State bubbles when zoomed out */}
+        {/* State bubbles */}
         {viewMode === 'states' && stateCounts.map((state) => (
           <Marker
             key={state.state}
             coordinate={{ latitude: state.lat, longitude: state.lng }}
             onPress={() => handleStatePress(state)}
           >
-            <View style={[
-              styles.stateBubble,
-              { 
-                width: getStateBubbleSize(state.count),
-                height: getStateBubbleSize(state.count),
-                borderRadius: getStateBubbleSize(state.count) / 2,
-              }
-            ]}>
-              <Text style={styles.stateCount}>{formatCount(state.count)}</Text>
-              <Text style={styles.stateName} numberOfLines={1}>
-                {state.state.length > 10 ? state.state.substring(0, 8) + '...' : state.state}
-              </Text>
+            <View style={[styles.bubble, { 
+              width: getBubbleSize(state.count),
+              height: getBubbleSize(state.count),
+              borderRadius: getBubbleSize(state.count) / 2,
+            }]}>
+              <Text style={styles.bubbleCount}>{formatCount(state.count)}</Text>
             </View>
           </Marker>
         ))}
 
-        {/* Event markers when zoomed in */}
+        {/* Event markers */}
         {viewMode === 'events' && events.map((event) => (
           <Marker
             key={event.id}
-            coordinate={{
-              latitude: event.latitude,
-              longitude: event.longitude,
-            }}
-            pinColor={getCategoryColor(event.category)}
-            onCalloutPress={() => handleMarkerPress(event)}
-          >
-            <Callout style={styles.callout}>
-              <View style={styles.calloutContent}>
-                <Text style={styles.calloutTitle} numberOfLines={2}>
-                  {event.title}
-                </Text>
-                <Text style={styles.calloutDate}>
-                  {formatEventDate(event.start_time)}
-                </Text>
-                {event.venue_name && (
-                  <Text style={styles.calloutVenue} numberOfLines={1}>
-                    📍 {event.venue_name}
-                  </Text>
-                )}
-              </View>
-            </Callout>
-          </Marker>
+            coordinate={{ latitude: event.latitude, longitude: event.longitude }}
+            pinColor={getColor(event.category)}
+            onPress={() => handleEventPress(event)}
+          />
         ))}
       </MapView>
 
-      {/* Status bar */}
-      <View style={styles.statusBar}>
-        {fetching ? (
-          <ActivityIndicator size="small" color={colors.primary} />
-        ) : (
-          <Text style={styles.statusText}>
-            {viewMode === 'states' 
-              ? `${stateCounts.reduce((sum, s) => sum + s.count, 0).toLocaleString()}+ events across ${stateCounts.length} states`
-              : `${events.length} events nearby`
-            }
-          </Text>
-        )}
+      {/* Top status bar */}
+      <View style={styles.topBar}>
+        <Text style={styles.statusText}>
+          {viewMode === 'states' 
+            ? `${totalEvents.toLocaleString()} events · ${stateCounts.length} states`
+            : `${events.length} events nearby`}
+        </Text>
+        {fetching && <ActivityIndicator size="small" color={colors.primary} style={{marginLeft: 8}} />}
       </View>
 
-      {/* Country view button - always visible */}
-      <TouchableOpacity
-        style={styles.zoomOutButton}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          mapRef.current?.animateToRegion({
-            latitude: 39.8283,
-            longitude: -98.5795,
-            latitudeDelta: 50,
-            longitudeDelta: 60,
-          }, 500);
-        }}
-      >
-        <Ionicons name="globe-outline" size={24} color={colors.primary} />
-      </TouchableOpacity>
+      {/* Filter pills - only show when viewing events */}
+      {viewMode === 'events' && (
+        <View style={styles.filterBar}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={CATEGORIES}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.filterPill, selectedCategory === item && styles.filterPillActive]}
+                onPress={() => {
+                  setSelectedCategory(item);
+                  if (region) fetchEventsInRegion(region);
+                }}
+              >
+                <Text style={[styles.filterText, selectedCategory === item && styles.filterTextActive]}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
 
-      {/* My location button */}
-      <TouchableOpacity
-        style={styles.locationButton}
-        onPress={async () => {
-          try {
-            const location = await Location.getCurrentPositionAsync({});
+      {/* Map controls */}
+      <View style={styles.controls}>
+        <TouchableOpacity
+          style={styles.controlBtn}
+          onPress={() => {
             mapRef.current?.animateToRegion({
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              latitudeDelta: 0.5,
-              longitudeDelta: 0.5,
-            }, 500);
-          } catch {}
-        }}
-      >
-        <Ionicons name="locate" size={24} color={colors.primary} />
-      </TouchableOpacity>
+              latitude: 39.8283,
+              longitude: -98.5795,
+              latitudeDelta: 40,
+              longitudeDelta: 40,
+            }, 400);
+          }}
+        >
+          <Ionicons name="globe-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.controlBtn}
+          onPress={async () => {
+            if (userLocation) {
+              mapRef.current?.animateToRegion({
+                ...userLocation,
+                latitudeDelta: 0.5,
+                longitudeDelta: 0.5,
+              }, 400);
+            }
+          }}
+        >
+          <Ionicons name="locate" size={22} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Sliding list panel */}
+      {viewMode === 'events' && (
+        <Animated.View style={[styles.listPanel, { height: listHeight }]}>
+          <View {...panResponder.panHandlers} style={styles.dragHandle}>
+            <View style={styles.handleBar} />
+            <Text style={styles.listTitle}>
+              {sortedEvents.length} Events {userLocation ? '(by distance)' : ''}
+            </Text>
+          </View>
+          
+          <FlatList
+            data={sortedEvents}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderEventItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        </Animated.View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  map: {
-    flex: 1,
-  },
-  loadingText: {
-    marginTop: 12,
-    color: colors.textSecondary,
-    fontSize: 16,
-  },
-  stateBubble: {
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.medium,
-  },
-  stateCount: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  stateName: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 9,
-    marginTop: 1,
-  },
-  callout: {
-    width: 200,
-    padding: 8,
-  },
-  calloutContent: {
-    flex: 1,
-  },
-  calloutTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  calloutDate: {
-    fontSize: 12,
-    color: colors.primary,
-    marginBottom: 2,
-  },
-  calloutVenue: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  statusBar: {
+  container: { flex: 1, backgroundColor: '#fff' },
+  centered: { justifyContent: 'center', alignItems: 'center' },
+  map: { flex: 1 },
+  
+  topBar: {
     position: 'absolute',
     top: 60,
     left: 16,
@@ -397,36 +388,98 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 10,
     paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.small,
+  },
+  statusText: { fontSize: 14, fontWeight: '500', color: colors.text },
+  
+  filterBar: {
+    position: 'absolute',
+    top: 110,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 12,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 20,
+    marginHorizontal: 4,
+    ...shadows.small,
+  },
+  filterPillActive: { backgroundColor: colors.primary },
+  filterText: { fontSize: 13, color: colors.text },
+  filterTextActive: { color: '#fff', fontWeight: '600' },
+  
+  controls: {
+    position: 'absolute',
+    right: 16,
+    bottom: 180,
+    gap: 10,
+  },
+  controlBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.medium,
+    marginBottom: 8,
+  },
+  
+  bubble: {
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
     alignItems: 'center',
     ...shadows.small,
   },
-  statusText: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  zoomOutButton: {
+  bubbleCount: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  
+  listPanel: {
     position: 'absolute',
-    bottom: 100,
-    right: 16,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.medium,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    ...shadows.large,
   },
-  locationButton: {
-    position: 'absolute',
-    bottom: 160,
-    right: 16,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
+  dragHandle: {
     alignItems: 'center',
-    ...shadows.medium,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#ddd',
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  listTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
+  listContent: { paddingHorizontal: 16 },
+  
+  eventItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
+  },
+  categoryDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+  },
+  eventInfo: { flex: 1 },
+  eventTitle: { fontSize: 15, fontWeight: '500', color: colors.text },
+  eventMeta: { fontSize: 12, color: colors.primary, marginTop: 2 },
+  eventVenue: { fontSize: 11, color: '#888', marginTop: 2 },
 });
