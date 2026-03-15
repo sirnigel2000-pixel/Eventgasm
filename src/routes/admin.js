@@ -690,8 +690,8 @@ router.post('/create-indexes', authMiddleware, async (req, res) => {
     
     const indexes = [
       'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_state_lat ON events(state, latitude) WHERE state IS NOT NULL AND latitude IS NOT NULL',
-      'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_upcoming_coords ON events(start_time, latitude, longitude) WHERE start_time > NOW() AND latitude IS NOT NULL',
-      'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_free_upcoming ON events(start_time) WHERE is_free = true AND start_time > NOW()',
+      'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_coords_time ON events(latitude, longitude, start_time) WHERE latitude IS NOT NULL',
+      'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_free ON events(is_free, start_time) WHERE is_free = true',
       'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_bbox ON events(latitude, longitude) WHERE latitude IS NOT NULL AND longitude IS NOT NULL',
       'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_source ON events(source)',
     ];

@@ -67,11 +67,10 @@ async function initializeDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_events_location ON events(latitude, longitude);`);
     
     // Performance indexes for common queries
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_events_state_coords ON events(state, latitude) WHERE state IS NOT NULL AND latitude IS NOT NULL;`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_events_upcoming ON events(start_time) WHERE start_time > NOW();`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_events_free ON events(is_free, start_time) WHERE is_free = true;`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_events_source ON events(source);`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_events_coords_upcoming ON events(latitude, longitude, start_time) WHERE latitude IS NOT NULL;`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_events_state_coords ON events(state, latitude) WHERE state IS NOT NULL AND latitude IS NOT NULL;`).catch(() => {});
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_events_free ON events(is_free, start_time) WHERE is_free = true;`).catch(() => {});
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_events_source ON events(source);`).catch(() => {});
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_events_coords_time ON events(latitude, longitude, start_time) WHERE latitude IS NOT NULL;`).catch(() => {});
 
     // Categories table for normalization
     await client.query(`
