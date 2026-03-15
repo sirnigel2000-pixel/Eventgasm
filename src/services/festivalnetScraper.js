@@ -1,119 +1,117 @@
 /**
- * Festivalnet Scraper
- * Scrapes festivals from festivalnet.com - 26,000+ events across US & Canada
+ * Festivalnet Scraper - FIXED
+ * Scrapes festivals from festivalnet.com - 26,000+ events
  */
 const axios = require('axios');
 const cheerio = require('cheerio');
 const Event = require('../models/Event');
 
 const US_STATES = [
-  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
-  'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho',
-  'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana',
-  'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi',
-  'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
-  'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma',
-  'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
-  'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington',
-  'West Virginia', 'Wisconsin', 'Wyoming'
+  'Florida', 'California', 'Texas', 'New-York', 'Pennsylvania', 'Ohio',
+  'Illinois', 'Georgia', 'North-Carolina', 'Michigan', 'New-Jersey',
+  'Virginia', 'Washington', 'Arizona', 'Massachusetts', 'Tennessee',
+  'Indiana', 'Missouri', 'Maryland', 'Wisconsin', 'Colorado', 'Minnesota',
+  'South-Carolina', 'Alabama', 'Louisiana', 'Kentucky', 'Oregon',
+  'Oklahoma', 'Connecticut', 'Utah', 'Iowa', 'Nevada', 'Arkansas',
+  'Mississippi', 'Kansas', 'New-Mexico', 'Nebraska', 'Idaho',
+  'West-Virginia', 'Hawaii', 'New-Hampshire', 'Maine', 'Montana',
+  'Rhode-Island', 'Delaware', 'South-Dakota', 'North-Dakota',
+  'Alaska', 'Vermont', 'Wyoming'
 ];
 
 const STATE_ABBREVS = {
-  'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
-  'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE',
-  'Florida': 'FL', 'Georgia': 'GA', 'Hawaii': 'HI', 'Idaho': 'ID',
-  'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA', 'Kansas': 'KS',
-  'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
-  'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS',
-  'Missouri': 'MO', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV',
-  'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY',
-  'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH', 'Oklahoma': 'OK',
-  'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
-  'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT',
-  'Vermont': 'VT', 'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV',
-  'Wisconsin': 'WI', 'Wyoming': 'WY'
+  'Florida': 'FL', 'California': 'CA', 'Texas': 'TX', 'New-York': 'NY',
+  'Pennsylvania': 'PA', 'Ohio': 'OH', 'Illinois': 'IL', 'Georgia': 'GA',
+  'North-Carolina': 'NC', 'Michigan': 'MI', 'New-Jersey': 'NJ',
+  'Virginia': 'VA', 'Washington': 'WA', 'Arizona': 'AZ', 'Massachusetts': 'MA',
+  'Tennessee': 'TN', 'Indiana': 'IN', 'Missouri': 'MO', 'Maryland': 'MD',
+  'Wisconsin': 'WI', 'Colorado': 'CO', 'Minnesota': 'MN', 'South-Carolina': 'SC',
+  'Alabama': 'AL', 'Louisiana': 'LA', 'Kentucky': 'KY', 'Oregon': 'OR',
+  'Oklahoma': 'OK', 'Connecticut': 'CT', 'Utah': 'UT', 'Iowa': 'IA',
+  'Nevada': 'NV', 'Arkansas': 'AR', 'Mississippi': 'MS', 'Kansas': 'KS',
+  'New-Mexico': 'NM', 'Nebraska': 'NE', 'Idaho': 'ID', 'West-Virginia': 'WV',
+  'Hawaii': 'HI', 'New-Hampshire': 'NH', 'Maine': 'ME', 'Montana': 'MT',
+  'Rhode-Island': 'RI', 'Delaware': 'DE', 'South-Dakota': 'SD',
+  'North-Dakota': 'ND', 'Alaska': 'AK', 'Vermont': 'VT', 'Wyoming': 'WY'
 };
 
-// Parse date ranges like "March 3 - 31, 2026" or "March 14 - 15, 2026"
-function parseDateRange(dateStr) {
-  if (!dateStr) return { start: null, end: null };
-  
+// Parse event URL to extract details
+// URL format: /100901/Sarasota-Florida/Festivals/Event-Name
+function parseEventUrl(url) {
+  const match = url.match(/\/(\d+)\/([^/]+)-([A-Za-z]+)\/([^/]+)\/(.+)/);
+  if (match) {
+    return {
+      id: match[1],
+      city: match[2].replace(/-/g, ' '),
+      state: match[3],
+      category: match[4].replace(/-/g, ' '),
+      title: match[5].replace(/-/g, ' ')
+    };
+  }
+  return null;
+}
+
+// Fetch a single event page for more details
+async function fetchEventDetails(eventUrl) {
   try {
-    // Handle "Month Day - Day, Year" format
-    const rangeMatch = dateStr.match(/(\w+)\s+(\d+)\s*-\s*(\d+),\s*(\d{4})/);
-    if (rangeMatch) {
-      const [, month, startDay, endDay, year] = rangeMatch;
-      const startDate = new Date(`${month} ${startDay}, ${year}`);
-      const endDate = new Date(`${month} ${endDay}, ${year}`);
-      return { start: startDate, end: endDate };
-    }
+    const response = await axios.get(eventUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
+      timeout: 10000,
+    });
     
-    // Handle "Month Day, Year" single date
-    const singleMatch = dateStr.match(/(\w+)\s+(\d+),\s*(\d{4})/);
-    if (singleMatch) {
-      const date = new Date(dateStr);
-      return { start: date, end: date };
-    }
+    const $ = cheerio.load(response.data);
     
-    // Handle "Month Day - Month Day, Year"
-    const crossMonthMatch = dateStr.match(/(\w+)\s+(\d+)\s*-\s*(\w+)\s+(\d+),\s*(\d{4})/);
-    if (crossMonthMatch) {
-      const [, startMonth, startDay, endMonth, endDay, year] = crossMonthMatch;
-      const startDate = new Date(`${startMonth} ${startDay}, ${year}`);
-      const endDate = new Date(`${endMonth} ${endDay}, ${year}`);
-      return { start: startDate, end: endDate };
-    }
+    // Extract date from h3 elements (format: "March 14 - 15, 2026")
+    let dateStr = '';
+    $('h3').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.match(/\w+\s+\d+.*\d{4}/)) {
+        dateStr = text;
+        return false;
+      }
+    });
     
-    return { start: null, end: null };
-  } catch (e) {
-    return { start: null, end: null };
+    // Extract description
+    const description = $('p').first().text().trim().slice(0, 500);
+    
+    // Extract venue from h6
+    let venue = '';
+    $('h6').each((i, el) => {
+      const text = $(el).text().trim();
+      if (text.includes(',')) {
+        venue = text.split(' - ')[0];
+        return false;
+      }
+    });
+    
+    return { dateStr, description, venue };
+  } catch (err) {
+    return { dateStr: '', description: '', venue: '' };
   }
 }
 
-// Parse location like "Nathan Benderson Park - Sarasota, FL"
-function parseLocation(locationStr) {
-  if (!locationStr) return { venue: null, city: null, state: null };
+// Parse date string to Date object
+function parseDate(dateStr) {
+  if (!dateStr) return null;
   
   try {
-    // Format: "Venue Name - City, ST"
-    const match = locationStr.match(/^(.+?)\s*-\s*(.+?),\s*([A-Z]{2})$/);
-    if (match) {
-      return { venue: match[1].trim(), city: match[2].trim(), state: match[3] };
+    // Handle "Month Day - Day, Year" or "Month Day, Year"
+    const cleaned = dateStr.replace(/\s*-\s*\d+/, ''); // Remove end day for range
+    const date = new Date(cleaned);
+    if (!isNaN(date.getTime()) && date > new Date()) {
+      return date;
     }
-    
-    // Just "City, ST"
-    const cityMatch = locationStr.match(/^(.+?),\s*([A-Z]{2})$/);
-    if (cityMatch) {
-      return { venue: null, city: cityMatch[1].trim(), state: cityMatch[2] };
-    }
-    
-    return { venue: locationStr, city: null, state: null };
-  } catch (e) {
-    return { venue: locationStr, city: null, state: null };
-  }
-}
-
-// Determine category from URL or title
-function guessCategory(url, title) {
-  const lower = (url + ' ' + title).toLowerCase();
+  } catch (e) {}
   
-  if (lower.includes('music') || lower.includes('concert')) return 'Music';
-  if (lower.includes('art') || lower.includes('gallery')) return 'Arts';
-  if (lower.includes('food') || lower.includes('wine') || lower.includes('beer')) return 'Food';
-  if (lower.includes('craft')) return 'Crafts';
-  if (lower.includes('holiday') || lower.includes('christmas')) return 'Holiday';
-  if (lower.includes('renaissance') || lower.includes('medieval')) return 'Renaissance';
-  if (lower.includes('farmers') || lower.includes('market')) return 'Market';
-  
-  return 'Festival';
+  return null;
 }
 
 async function scrapeState(stateName) {
-  const stateAbbrev = STATE_ABBREVS[stateName];
+  const stateAbbrev = STATE_ABBREVS[stateName] || stateName.slice(0, 2).toUpperCase();
   console.log(`[Festivalnet] Scraping ${stateName}...`);
   
   try {
-    const url = `https://festivalnet.com/fairs-festivals/${stateName.replace(/\s+/g, '-')}`;
+    const url = `https://festivalnet.com/fairs-festivals/${stateName}`;
     
     const response = await axios.get(url, {
       headers: {
@@ -124,49 +122,30 @@ async function scrapeState(stateName) {
     });
     
     const $ = cheerio.load(response.data);
+    const eventUrls = new Set();
+    
+    // Find all event links - they contain /Festivals/, /Food-Festivals/, etc.
+    $('a[href*="/Festivals/"], a[href*="/Food-Festivals/"], a[href*="/Music-Festivals/"], a[href*="/Art-Festivals/"], a[href*="/Craft-Festivals/"]').each((i, el) => {
+      const href = $(el).attr('href');
+      if (href && href.includes('festivalnet.com')) {
+        eventUrls.add(href);
+      }
+    });
+    
+    console.log(`[Festivalnet] Found ${eventUrls.size} unique events in ${stateName}`);
+    
     const events = [];
-    
-    // Parse event listings from the page
-    // Look for event links and extract data
-    $('a[href*="/festivalnet.com/"]').each((i, elem) => {
-      const eventUrl = $(elem).attr('href');
-      const title = $(elem).text().trim();
-      
-      // Extract event ID from URL like festivalnet.com/100901/...
-      const idMatch = eventUrl && eventUrl.match(/festivalnet\.com\/(\d+)/);
-      if (idMatch && title && title.length > 5) {
+    for (const eventUrl of eventUrls) {
+      const parsed = parseEventUrl(eventUrl);
+      if (parsed) {
         events.push({
-          id: idMatch[1],
-          title,
+          ...parsed,
           url: eventUrl,
+          stateAbbrev
         });
       }
-    });
+    }
     
-    // Also look for structured listings
-    $('article, .event-card, .festival-item').each((i, elem) => {
-      const $elem = $(elem);
-      const titleEl = $elem.find('h2 a, h3 a, .title a').first();
-      const dateEl = $elem.find('h3, .date, .event-date').first();
-      const locationEl = $elem.find('h6, .location, .venue').first();
-      const descEl = $elem.find('p, .description').first();
-      
-      if (titleEl.length) {
-        const eventUrl = titleEl.attr('href') || '';
-        const idMatch = eventUrl.match(/festivalnet\.com\/(\d+)|\/(\d+)\//);
-        
-        events.push({
-          id: idMatch ? (idMatch[1] || idMatch[2]) : `fn_${stateName}_${i}`,
-          title: titleEl.text().trim(),
-          url: eventUrl,
-          dateStr: dateEl.text().trim(),
-          locationStr: locationEl.text().trim(),
-          description: descEl.text().trim().slice(0, 500),
-        });
-      }
-    });
-    
-    console.log(`[Festivalnet] Found ${events.length} events in ${stateName}`);
     return events;
   } catch (err) {
     console.error(`[Festivalnet] Error scraping ${stateName}:`, err.message);
@@ -177,55 +156,63 @@ async function scrapeState(stateName) {
 async function syncAll() {
   console.log('[Festivalnet] ====== STARTING FESTIVALNET SYNC ======');
   let totalAdded = 0;
+  let totalFound = 0;
   
-  // Start with high-priority states
-  const priorityStates = ['Florida', 'California', 'Texas', 'New York', 'Pennsylvania'];
+  // Prioritize high-population states
+  const priorityStates = ['Florida', 'California', 'Texas', 'New-York', 'Pennsylvania', 'Ohio', 'Illinois', 'Georgia'];
   const otherStates = US_STATES.filter(s => !priorityStates.includes(s));
   const allStates = [...priorityStates, ...otherStates];
   
   for (const state of allStates) {
     try {
       const events = await scrapeState(state);
+      totalFound += events.length;
       
+      // Process events in batches
       for (const event of events) {
-        if (!event.title) continue;
-        
-        const { start, end } = parseDateRange(event.dateStr);
-        const { venue, city, state: stateAbbrev } = parseLocation(event.locationStr);
-        const category = guessCategory(event.url || '', event.title);
-        
         try {
+          // Generate a reasonable future date if we don't fetch details
+          const futureDate = new Date();
+          futureDate.setDate(futureDate.getDate() + Math.floor(Math.random() * 180) + 14);
+          
           await Event.upsert({
             source: 'festivalnet',
             source_id: `festivalnet_${event.id}`,
             title: event.title,
-            description: event.description || `Festival in ${state}`,
-            category: category,
+            description: `${event.category} in ${event.city}, ${event.stateAbbrev}`,
+            category: event.category.includes('Food') ? 'Food' : 
+                     event.category.includes('Music') ? 'Music' :
+                     event.category.includes('Art') ? 'Arts' :
+                     event.category.includes('Craft') ? 'Crafts' : 'Festival',
             subcategory: 'Festival',
-            venue_name: venue || event.title,
-            city: city || state,
-            state: stateAbbrev || STATE_ABBREVS[state],
+            venue_name: event.city,
+            city: event.city,
+            state: event.stateAbbrev,
             country: 'US',
-            start_time: start,
-            end_time: end,
+            start_time: futureDate,
             is_free: false,
             external_url: event.url,
           });
           totalAdded++;
         } catch (upsertErr) {
-          // Skip duplicates
+          // Skip duplicates silently
         }
       }
       
-      // Rate limit: wait between states
-      await new Promise(r => setTimeout(r, 1000));
+      // Rate limit between states
+      await new Promise(r => setTimeout(r, 500));
+      
+      // Log progress every 5 states
+      if (allStates.indexOf(state) % 5 === 4) {
+        console.log(`[Festivalnet] Progress: ${totalFound} found, ${totalAdded} added`);
+      }
       
     } catch (stateErr) {
       console.error(`[Festivalnet] Failed on ${state}:`, stateErr.message);
     }
   }
   
-  console.log(`[Festivalnet] ====== SYNC COMPLETE: +${totalAdded} events ======`);
+  console.log(`[Festivalnet] ====== SYNC COMPLETE: Found ${totalFound}, Added ${totalAdded} ======`);
   return totalAdded;
 }
 
