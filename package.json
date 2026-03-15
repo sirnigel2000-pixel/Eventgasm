@@ -9,7 +9,13 @@
     "sync": "node -e \"require('./src/services/syncManager').runFullSync()\"",
     "sync:quick": "node -e \"require('./src/services/syncManager').runQuickSync()\""
   },
-  "keywords": ["events", "aggregator", "concerts", "festivals", "sports"],
+  "keywords": [
+    "events",
+    "aggregator",
+    "concerts",
+    "festivals",
+    "sports"
+  ],
   "author": "Sons of Beaches",
   "license": "ISC",
   "dependencies": {
@@ -21,6 +27,7 @@
     "helmet": "^8.1.0",
     "node-cron": "^3.0.3",
     "pg": "^8.14.1",
+    "sequelize": "^6.37.8",
     "uuid": "^11.1.0"
   }
 }
