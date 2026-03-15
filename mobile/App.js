@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+
+const isWeb = Platform.OS === 'web';
 
 import SwipeScreen from './src/screens/SwipeScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -26,6 +29,7 @@ const Tab = createBottomTabNavigator();
 function MainTabs() {
   return (
     <Tab.Navigator
+      initialRouteName={isWeb ? 'SearchTab' : 'DiscoverTab'}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
@@ -34,6 +38,8 @@ function MainTabs() {
             iconName = focused ? 'albums' : 'albums-outline';
           } else if (route.name === 'SearchTab') {
             iconName = focused ? 'search' : 'search-outline';
+          } else if (route.name === 'MapTab') {
+            iconName = focused ? 'map' : 'map-outline';
           } else if (route.name === 'ListsTab') {
             iconName = focused ? 'list' : 'list-outline';
           } else if (route.name === 'SocialTab') {
@@ -59,16 +65,27 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen 
-        name="DiscoverTab" 
-        component={SwipeScreen}
-        options={{ tabBarLabel: 'Discover' }}
-      />
+      {/* Swipe/Discover - MOBILE ONLY */}
+      {!isWeb && (
+        <Tab.Screen 
+          name="DiscoverTab" 
+          component={SwipeScreen}
+          options={{ tabBarLabel: 'Discover' }}
+        />
+      )}
       <Tab.Screen 
         name="SearchTab" 
         component={HomeScreen}
         options={{ tabBarLabel: 'Search' }}
       />
+      {/* Map tab for web (replaces swipe) */}
+      {isWeb && (
+        <Tab.Screen 
+          name="MapTab" 
+          component={MapScreen}
+          options={{ tabBarLabel: 'Map' }}
+        />
+      )}
       <Tab.Screen 
         name="ListsTab" 
         component={ListsScreen}
