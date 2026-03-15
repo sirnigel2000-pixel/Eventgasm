@@ -1,4 +1,55 @@
 const { pool } = require('../db');
+const axios = require('axios');
+
+// Garbage name patterns - these need to be fixed or filtered
+const GARBAGE_PATTERNS = [
+  /deposit/i, /season ticket/i, /parking pass/i, /presale/i,
+  /membership/i, /waitlist/i, /^tbd$/i, /^tba$/i
+];
+
+// Check if title is garbage
+function isGarbageTitle(title) {
+  if (!title) return true;
+  for (const pattern of GARBAGE_PATTERNS) {
+    if (pattern.test(title)) return true;
+  }
+  return false;
+}
+
+// Try to extract real name from ticket URL
+function extractNameFromUrl(url) {
+  if (!url) return null;
+  try {
+    const match = url.match(/ticketmaster\.com\/([^\/]+)-tickets/i) ||
+                  url.match(/seatgeek\.com\/([^\/]+)\/tickets/i) ||
+                  url.match(/stubhub\.com\/([^\/]+)-tickets/i);
+    if (match) {
+      return match[1].replace(/-/g, ' ').replace(/\d{4,}/g, '')
+        .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ').trim();
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Geocode a location using Google (fast, on insert)
+async function quickGeocode(city, state, country = 'US') {
+  if (!city) return null;
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) return null;
+  
+  try {
+    const query = encodeURIComponent(`${city}, ${state || ''} ${country}`);
+    const response = await axios.get(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${apiKey}`,
+      { timeout: 3000 }
+    );
+    if (response.data.status === 'OK' && response.data.results[0]) {
+      const loc = response.data.results[0].geometry.location;
+      return { latitude: loc.lat, longitude: loc.lng };
+    }
+  } catch (e) {}
+  return null;
+}
 
 // Filter to only show usable events in the app
 const USABLE_FILTER = `
@@ -37,10 +88,33 @@ class Event {
     } = eventData;
 
     // Normalize field names
+    // Fix garbage titles on insert
+    let cleanTitle = title;
+    const ticketUrl = ticket_url || ticketUrl;
+    if (isGarbageTitle(title) && ticketUrl) {
+      const extractedName = extractNameFromUrl(ticketUrl);
+      if (extractedName && extractedName.length > 3) {
+        cleanTitle = extractedName;
+        console.log(`[Event.upsert] Fixed title: "${title}" → "${cleanTitle}"`);
+      }
+    }
+
+    // Auto-geocode if we have city but no coords
+    let finalLat = latitude || lat;
+    let finalLng = longitude || lng;
+    if (!finalLat && city) {
+      const geo = await quickGeocode(city, state, country);
+      if (geo) {
+        finalLat = geo.latitude;
+        finalLng = geo.longitude;
+        console.log(`[Event.upsert] Geocoded: ${city}, ${state} → ${finalLat}, ${finalLng}`);
+      }
+    }
+
     const normalizedData = {
       source,
       source_id: source_id || externalId,
-      title,
+      title: cleanTitle,
       description,
       category,
       subcategory,
@@ -50,14 +124,14 @@ class Event {
       state,
       zip,
       country: country || 'US',
-      latitude: latitude || lat,
-      longitude: longitude || lng,
+      latitude: finalLat,
+      longitude: finalLng,
       start_time: start_time || startTime,
       end_time: end_time || endTime,
       timezone,
       is_all_day: is_all_day || isAllDay || false,
       image_url: image_url || imageUrl,
-      ticket_url: ticket_url || ticketUrl,
+      ticket_url: ticketUrl,
       price_min: price_min || priceMin,
       price_max: price_max || priceMax,
       is_free: is_free ?? isFree ?? false,
