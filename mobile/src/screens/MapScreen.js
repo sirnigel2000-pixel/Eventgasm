@@ -116,10 +116,18 @@ export default function MapScreen({ navigation, route }) {
       const response = await api.get('/events', { params, timeout: 45000 });
       
       if (response.data.success) {
-        // Filter events that have valid coordinates
-        const eventsWithCoords = (response.data.events || []).filter(
-          e => e.latitude && e.longitude
-        );
+        // Filter events that have valid coordinates (check both formats)
+        const eventsWithCoords = (response.data.events || [])
+          .filter(e => 
+            (e.latitude && e.longitude) || 
+            (e.venue?.coordinates?.lat && e.venue?.coordinates?.lng)
+          )
+          .map(e => ({
+            ...e,
+            // Normalize coordinates to top level
+            latitude: e.latitude || e.venue?.coordinates?.lat,
+            longitude: e.longitude || e.venue?.coordinates?.lng,
+          }));
         setEvents(eventsWithCoords);
       }
     } catch (error) {
