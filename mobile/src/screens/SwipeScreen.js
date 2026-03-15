@@ -159,7 +159,13 @@ const SwipeScreen = ({ navigation }) => {
       if (response.data.success) {
         let newEvents = response.data.events || [];
         
-        // Client-side boost for preferred categories
+        // Filter out events without images or with poor data
+        newEvents = newEvents.filter(e => 
+          e.image || e.image_url || // Has image
+          (e.title && e.title.length > 5) // At minimum has a real title
+        );
+        
+        // Client-side boost for preferred categories (silent, no forced training)
         if (preferences.swipeCount > 3) {
           newEvents = boostPreferredEvents(newEvents);
         }
@@ -287,17 +293,17 @@ const SwipeScreen = ({ navigation }) => {
     fetchEvents(true);
   };
 
-  // Get preference summary for display
+  // Get preference summary for display (subtle, not pushy)
   const getPreferenceSummary = () => {
-    if (preferences.swipeCount < 5) {
-      return `Swipe to train your feed (${preferences.swipeCount}/5)`;
+    if (preferences.swipeCount > 10) {
+      const topCat = Object.entries(preferences.likedCategories)
+        .sort((a, b) => b[1] - a[1])[0];
+      if (topCat) {
+        return `For you · ${topCat[0]}`;
+      }
+      return 'For you';
     }
-    const topCat = Object.entries(preferences.likedCategories)
-      .sort((a, b) => b[1] - a[1])[0];
-    if (topCat) {
-      return `Personalized · You like ${topCat[0]}`;
-    }
-    return 'Personalized for you';
+    return 'Discover';
   };
 
   // Render card stack (show 3 cards)
@@ -318,12 +324,7 @@ const SwipeScreen = ({ navigation }) => {
         <View style={styles.emptyContainer}>
           <Ionicons name="checkmark-circle-outline" size={64} color={colors.primary} />
           <Text style={styles.emptyTitle}>You're all caught up!</Text>
-          <Text style={styles.emptySubtitle}>
-            {preferences.swipeCount > 0 
-              ? `You've swiped ${preferences.swipeCount} events. We're learning your taste!`
-              : 'Check back later for more events'
-            }
-          </Text>
+          <Text style={styles.emptySubtitle}>Check back later for more events</Text>
           <Pressable 
             style={styles.refreshButton}
             onPress={() => fetchEvents(true)}
@@ -393,14 +394,7 @@ const SwipeScreen = ({ navigation }) => {
           {renderCardStack()}
         </View>
 
-        {/* Swipe hint for new users */}
-        {preferences.swipeCount < 3 && currentIndex < events.length && (
-          <View style={styles.hintContainer}>
-            <Text style={styles.hintText}>
-              👈 Not interested · Interested 👉
-            </Text>
-          </View>
-        )}
+
 
         {/* Action Buttons */}
         {currentIndex < events.length && (
@@ -529,14 +523,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  hintContainer: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  hintText: {
-    fontSize: 13,
-    color: colors.textSecondary,
   },
   actionButtons: {
     flexDirection: 'row',
