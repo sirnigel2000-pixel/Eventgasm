@@ -113,7 +113,7 @@ export default function MapScreen({ navigation, route }) {
       if (filters.startDate) params.start_date = filters.startDate;
       if (filters.endDate) params.end_date = filters.endDate;
 
-      const response = await api.get('/events', { params });
+      const response = await api.get('/events', { params, timeout: 45000 });
       
       if (response.data.success) {
         // Filter events that have valid coordinates
