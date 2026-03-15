@@ -7,6 +7,7 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const gunzip = promisify(zlib.gunzip);
 const Event = require('../models/Event');
+const { fillLocation } = require('./geocoder');
 
 const EVENT_SITEMAPS = [
   'https://www.eventbrite.com/sitemap_xml/event_pages00.xml.gz',
@@ -193,6 +194,9 @@ async function syncAll() {
         
         // Final check - must have city
         if (!details.city) return 'skip';
+        
+        // Fill in missing location data using Google APIs
+        await fillLocation(details);
         
         try {
           await Event.upsert({

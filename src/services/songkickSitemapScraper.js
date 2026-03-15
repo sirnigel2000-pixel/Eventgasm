@@ -6,6 +6,7 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const gunzip = promisify(zlib.gunzip);
 const Event = require('../models/Event');
+const { fillLocation } = require('./geocoder');
 
 const SITEMAPS = [
   'https://www.songkick.com/sitemap/concerts.0.xml.gz',
@@ -99,7 +100,16 @@ async function syncAll() {
         if (!eventId) { totalSkipped++; return; }
         
         const details = await fetchEventDetails(url);
-        if (!details || !details.title || !details.city || !details.start_time) {
+        if (!details || !details.title || !details.start_time) {
+          totalSkipped++;
+          return;
+        }
+        
+        // Fill missing location with Google APIs
+        await fillLocation(details);
+        
+        // Still need city after enrichment
+        if (!details.city) {
           totalSkipped++;
           return;
         }

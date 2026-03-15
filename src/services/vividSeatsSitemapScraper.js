@@ -3,6 +3,7 @@
  */
 const axios = require('axios');
 const Event = require('../models/Event');
+const { fillLocation } = require('./geocoder');
 
 const SITEMAP_URL = 'https://www.vividseats.com/sitemap/concerts.xml';
 
@@ -90,7 +91,16 @@ async function syncAll() {
         if (!eventId) { totalSkipped++; return; }
         
         const details = await fetchEventDetails(url);
-        if (!details || !details.title || !details.city || !details.start_time) {
+        if (!details || !details.title || !details.start_time) {
+          totalSkipped++;
+          return;
+        }
+        
+        // Fill missing location with Google APIs
+        await fillLocation(details);
+        
+        // Still need city after enrichment
+        if (!details.city) {
           totalSkipped++;
           return;
         }
