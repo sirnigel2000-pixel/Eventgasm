@@ -90,9 +90,9 @@ class Event {
     // Normalize field names
     // Fix garbage titles on insert
     let cleanTitle = title;
-    const ticketUrl = ticket_url || ticketUrl;
-    if (isGarbageTitle(title) && ticketUrl) {
-      const extractedName = extractNameFromUrl(ticketUrl);
+    const finalTicketUrl = ticket_url || ticketUrl;
+    if (isGarbageTitle(title) && finalTicketUrl) {
+      const extractedName = extractNameFromUrl(finalTicketUrl);
       if (extractedName && extractedName.length > 3) {
         cleanTitle = extractedName;
         console.log(`[Event.upsert] Fixed title: "${title}" → "${cleanTitle}"`);
@@ -131,7 +131,7 @@ class Event {
       timezone,
       is_all_day: is_all_day || isAllDay || false,
       image_url: image_url || imageUrl,
-      ticket_url: ticketUrl,
+      ticket_url: finalTicketUrl,
       price_min: price_min || priceMin,
       price_max: price_max || priceMax,
       is_free: is_free ?? isFree ?? false,
