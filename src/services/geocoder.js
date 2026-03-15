@@ -42,9 +42,9 @@ async function findVenue(venueName, city) {
   if (!apiKey || !venueName) return null;
   
   try {
-    const query = encodeURIComponent(\`\${venueName} \${city || ''}\`);
+    const query = encodeURIComponent(`${venueName} ${city || ''}`);
     const response = await axios.get(
-      \`https://maps.googleapis.com/maps/api/place/textsearch/json?query=\${query}&key=\${apiKey}\`,
+      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${query}&key=${apiKey}`,
       { timeout: 5000 }
     );
     
@@ -66,15 +66,40 @@ async function findVenue(venueName, city) {
 async function geocodeFallback(city, state, country = 'US') {
   if (!city) return null;
   try {
-    const query = encodeURIComponent(\`\${city}, \${state || ''} \${country}\`.trim());
+    const query = encodeURIComponent(`${city}, ${state || ''} ${country}`.trim());
     const response = await axios.get(
-      \`https://nominatim.openstreetmap.org/search?q=\${query}&format=json&limit=1\`,
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
       { headers: { 'User-Agent': 'Eventgasm/1.0' }, timeout: 5000 }
     );
     if (response.data?.[0]) {
       return {
         latitude: parseFloat(response.data[0].lat),
         longitude: parseFloat(response.data[0].lon),
+      };
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Search for event info using Places Text Search
+async function searchEventInfo(eventTitle, venueName) {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey || !eventTitle) return null;
+  
+  try {
+    const query = encodeURIComponent(`${eventTitle} ${venueName || ''} event`);
+    const response = await axios.get(
+      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${query}&key=${apiKey}`,
+      { timeout: 5000 }
+    );
+    
+    if (response.data.status === 'OK' && response.data.results[0]) {
+      const place = response.data.results[0];
+      return {
+        venue_name: place.name,
+        latitude: place.geometry?.location?.lat,
+        longitude: place.geometry?.location?.lng,
+        formatted_address: place.formatted_address,
       };
     }
   } catch (e) {}
@@ -99,7 +124,7 @@ async function fillLocation(data) {
   
   // Try Google geocoding
   if (data.city) {
-    const geo = await geocodeWithGoogle(\`\${data.city}, \${data.state || ''} \${data.country || 'US'}\`);
+    const geo = await geocodeWithGoogle(`${data.city}, ${data.state || ''} ${data.country || 'US'}`);
     if (geo?.latitude) {
       data.latitude = geo.latitude;
       data.longitude = geo.longitude;
@@ -120,35 +145,4 @@ async function fillLocation(data) {
   return data;
 }
 
-module.exports = { geocodeWithGoogle, findVenue, geocodeFallback, fillLocation };
-
-// Google Custom Search - find event info online
-async function searchEventInfo(eventTitle, venueName) {
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-  if (!apiKey || !eventTitle) return null;
-  
-  try {
-    const query = encodeURIComponent(\`\${eventTitle} \${venueName || ''} event location\`);
-    // Note: Custom Search requires a Search Engine ID (cx) to be configured
-    // For now, we'll use Places Text Search which is similar
-    const response = await axios.get(
-      \`https://maps.googleapis.com/maps/api/place/textsearch/json?query=\${query}&type=establishment&key=\${apiKey}\`,
-      { timeout: 5000 }
-    );
-    
-    if (response.data.status === 'OK' && response.data.results[0]) {
-      const place = response.data.results[0];
-      return {
-        venue_name: place.name,
-        latitude: place.geometry?.location?.lat,
-        longitude: place.geometry?.location?.lng,
-        formatted_address: place.formatted_address,
-      };
-    }
-  } catch (e) {
-    console.error('[Geocoder] Search error:', e.message);
-  }
-  return null;
-}
-
-module.exports.searchEventInfo = searchEventInfo;
+module.exports = { geocodeWithGoogle, findVenue, geocodeFallback, fillLocation, searchEventInfo };
