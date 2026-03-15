@@ -82,19 +82,19 @@ export default function MapScreen({ navigation, route }) {
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
         const userRegion = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 20, // Start zoomed out to see states
-          longitudeDelta: 20,
+          latitude: 39.8283, // Start at US center to show all states
+          longitude: -98.5795,
+          latitudeDelta: 50,
+          longitudeDelta: 60,
         };
         setRegion(userRegion);
       } else {
-        // Default to US center
+        // Default to US center - zoomed out enough to hint at HI/AK
         setRegion({
           latitude: 39.8283,
           longitude: -98.5795,
-          latitudeDelta: 40,
-          longitudeDelta: 40,
+          latitudeDelta: 50,
+          longitudeDelta: 60,
         });
       }
     } catch (error) {
@@ -303,8 +303,8 @@ export default function MapScreen({ navigation, route }) {
             mapRef.current?.animateToRegion({
               latitude: 39.8283,
               longitude: -98.5795,
-              latitudeDelta: 40,
-              longitudeDelta: 40,
+              latitudeDelta: 50,
+              longitudeDelta: 60,
             }, 500);
           }}
         >
