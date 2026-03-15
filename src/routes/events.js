@@ -107,6 +107,9 @@ router.get('/recommended', async (req, res) => {
       });
     }
 
+    // Filter out events without images (swipe needs visual appeal)
+    events = events.filter(e => e.image_url);
+    
     // Limit results
     events = events.slice(0, parseInt(limit));
 
