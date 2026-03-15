@@ -153,7 +153,71 @@ async function fetchEventData(url) {
   }
 }
 
-// Geocode city to get coordinates (free API)
+// Google Geocoding API - fast and accurate
+async function geocodeWithGoogle(address) {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey || !address) return null;
+  
+  try {
+    const query = encodeURIComponent(address);
+    const response = await axios.get(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${apiKey}`,
+      { timeout: 5000 }
+    );
+    
+    if (response.data.status === 'OK' && response.data.results[0]) {
+      const result = response.data.results[0];
+      const components = result.address_components;
+      
+      // Extract city, state, country from components
+      const getComponent = (type) => {
+        const comp = components.find(c => c.types.includes(type));
+        return comp ? comp.long_name : null;
+      };
+      
+      return {
+        latitude: result.geometry.location.lat,
+        longitude: result.geometry.location.lng,
+        city: getComponent('locality') || getComponent('sublocality'),
+        state: getComponent('administrative_area_level_1'),
+        country: getComponent('country'),
+        formatted_address: result.formatted_address,
+      };
+    }
+  } catch (e) {
+    console.error('[Enricher] Google Geocode error:', e.message);
+  }
+  return null;
+}
+
+// Google Places API - find venue details from name
+async function findVenueWithGoogle(venueName, city) {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey || !venueName) return null;
+  
+  try {
+    const query = encodeURIComponent(`${venueName} ${city || ''}`);
+    const response = await axios.get(
+      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${query}&key=${apiKey}`,
+      { timeout: 5000 }
+    );
+    
+    if (response.data.status === 'OK' && response.data.results[0]) {
+      const place = response.data.results[0];
+      return {
+        venue_name: place.name,
+        latitude: place.geometry.location.lat,
+        longitude: place.geometry.location.lng,
+        formatted_address: place.formatted_address,
+      };
+    }
+  } catch (e) {
+    console.error('[Enricher] Google Places error:', e.message);
+  }
+  return null;
+}
+
+// Fallback: OpenStreetMap (free, no API key needed)
 async function geocodeCity(city, state, country = 'US') {
   if (!city) return null;
   try {
@@ -249,17 +313,44 @@ async function enrichEvents(batchSize = 50) {
     for (const event of events) {
       if (!event.external_url) continue;
       
-      const data = await fetchEventData(event.external_url);
-      if (data && (data.city || data.latitude || data.start_time)) {
-        // If we have city but no coords, try geocoding
-        if (data.city && !data.latitude) {
-          const coords = await geocodeCity(data.city, data.state, data.country);
-          if (coords) {
-            data.latitude = coords.latitude;
-            data.longitude = coords.longitude;
+      let data = await fetchEventData(event.external_url);
+      if (!data) data = {};
+      
+      // Strategy 1: If we have venue but no coords, try Google Places
+      if (data.venue_name && !data.latitude) {
+        const venue = await findVenueWithGoogle(data.venue_name, data.city);
+        if (venue) {
+          data.latitude = venue.latitude;
+          data.longitude = venue.longitude;
+          if (!data.city && venue.formatted_address) {
+            // Extract city from address
+            const parts = venue.formatted_address.split(',');
+            if (parts.length >= 2) data.city = parts[parts.length - 3]?.trim();
           }
         }
-        
+      }
+      
+      // Strategy 2: If we have city but no coords, try Google Geocoding
+      if (data.city && !data.latitude) {
+        const geo = await geocodeWithGoogle(`${data.city}, ${data.state || ''} ${data.country || 'US'}`);
+        if (geo) {
+          data.latitude = geo.latitude;
+          data.longitude = geo.longitude;
+          if (!data.state) data.state = geo.state;
+        }
+      }
+      
+      // Strategy 3: Fallback to OpenStreetMap
+      if (data.city && !data.latitude) {
+        const coords = await geocodeCity(data.city, data.state, data.country);
+        if (coords) {
+          data.latitude = coords.latitude;
+          data.longitude = coords.longitude;
+        }
+      }
+      
+      // If we got any useful data, update
+      if (data.city || data.latitude || data.start_time || data.venue_name) {
         const updated = await updateEvent(event.id, data);
         if (updated) {
           totalEnriched++;
