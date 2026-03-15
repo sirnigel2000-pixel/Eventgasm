@@ -102,12 +102,20 @@ export default function MapScreen({ navigation, route }) {
       const minLng = mapRegion.longitude - mapRegion.longitudeDelta / 2;
       const maxLng = mapRegion.longitude + mapRegion.longitudeDelta / 2;
 
+      // Dynamic limit based on zoom level
+      // Zoomed out (large delta) = fewer events, zoomed in = more
+      let limit = 200; // default
+      if (mapRegion.latitudeDelta < 0.5) limit = 500;      // city level
+      else if (mapRegion.latitudeDelta < 2) limit = 300;   // metro area
+      else if (mapRegion.latitudeDelta < 10) limit = 200;  // state level
+      else limit = 150; // country level - just show clusters
+
       const params = {
         min_lat: minLat.toFixed(4),
         max_lat: maxLat.toFixed(4),
         min_lng: minLng.toFixed(4),
         max_lng: maxLng.toFixed(4),
-        limit: 1500,
+        limit,
       };
 
       if (filters.category) params.category = filters.category;
