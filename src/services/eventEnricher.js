@@ -368,15 +368,65 @@ async function enrichEvents(batchSize = 50) {
       await new Promise(r => setTimeout(r, 300));
     }
     
-    // Check if we should continue (limit to 500 per run to not timeout)
-    if (processed >= 500) {
-      console.log('[Enricher] Batch limit reached, stopping');
-      break;
+    // Log progress every 500
+    if (processed % 500 === 0) {
+      console.log(`[Enricher] Batch ${processed / 500} complete, continuing...`);
     }
   }
   
   console.log(`[Enricher] ====== COMPLETE: ${totalEnriched} events enriched ======`);
   return totalEnriched;
+}
+
+// Continuous enrichment - runs until all events are processed
+let continuousRunning = false;
+async function runContinuousEnrichment() {
+  if (continuousRunning) {
+    console.log('[Enricher] Continuous mode already running');
+    return { status: 'already_running' };
+  }
+  
+  continuousRunning = true;
+  console.log('[Enricher] ====== STARTING CONTINUOUS MODE ======');
+  
+  let totalBatches = 0;
+  let totalEnriched = 0;
+  
+  while (continuousRunning) {
+    const stats = await getIncompleteStats();
+    const remaining = parseInt(stats.missing_coords) + parseInt(stats.missing_city);
+    
+    if (remaining < 100) {
+      console.log('[Enricher] Nearly complete! Remaining:', remaining);
+      break;
+    }
+    
+    console.log(`[Enricher] Starting batch ${totalBatches + 1}, ${remaining} events need work...`);
+    
+    try {
+      const enriched = await enrichEvents(100);
+      totalEnriched += enriched;
+      totalBatches++;
+      
+      console.log(`[Enricher] Batch ${totalBatches} done: +${enriched} (total: ${totalEnriched})`);
+      
+      // Brief pause between batches
+      await new Promise(r => setTimeout(r, 2000));
+      
+    } catch (error) {
+      console.error('[Enricher] Batch error:', error.message);
+      await new Promise(r => setTimeout(r, 10000)); // Wait longer on error
+    }
+  }
+  
+  continuousRunning = false;
+  console.log(`[Enricher] ====== CONTINUOUS COMPLETE: ${totalBatches} batches, ${totalEnriched} enriched ======`);
+  return { batches: totalBatches, enriched: totalEnriched };
+}
+
+function stopContinuousEnrichment() {
+  continuousRunning = false;
+  console.log('[Enricher] Stopping continuous mode...');
 }
 
 // Get stats on incomplete events
@@ -393,4 +443,10 @@ async function getIncompleteStats() {
   return result.rows[0];
 }
 
-module.exports = { enrichEvents, getIncompleteStats, findIncompleteEvents };
+module.exports = { 
+  enrichEvents, 
+  getIncompleteStats, 
+  findIncompleteEvents,
+  runContinuousEnrichment,
+  stopContinuousEnrichment
+};

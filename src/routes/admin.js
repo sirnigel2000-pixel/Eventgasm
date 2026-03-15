@@ -274,6 +274,28 @@ router.post('/sync/songkick-sitemap', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /admin/enrich/continuous - Run enrichment continuously until done
+router.post('/enrich/continuous', authMiddleware, async (req, res) => {
+  try {
+    const enricher = require('../services/eventEnricher');
+    res.json({ message: 'Continuous enrichment started', status: 'running' });
+    enricher.runContinuousEnrichment(); // Don't await - runs in background
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /admin/enrich/stop - Stop continuous enrichment
+router.post('/enrich/stop', authMiddleware, async (req, res) => {
+  try {
+    const enricher = require('../services/eventEnricher');
+    enricher.stopContinuousEnrichment();
+    res.json({ message: 'Stopping continuous enrichment' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /admin/enrich - Enrich incomplete events with real data
 router.post('/enrich', authMiddleware, async (req, res) => {
   try {
