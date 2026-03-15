@@ -473,3 +473,65 @@ router.post('/sync/axs-sitemap', authMiddleware, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// Title-based enrichment for events without URLs
+router.post('/enrich/titles', authMiddleware, async (req, res) => {
+  try {
+    const { pool } = require('../db');
+    const { extractCityFromTitle, detectLanguage } = require('../services/titleParser');
+    const { fillLocation } = require('../services/geocoder');
+    
+    res.json({ message: 'Title enrichment started' });
+    
+    // Get events missing city (no URL required)
+    const result = await pool.query(`
+      SELECT id, title, venue_name 
+      FROM events 
+      WHERE city IS NULL 
+      LIMIT 1000
+    `);
+    
+    let updated = 0;
+    for (const event of result.rows) {
+      try {
+        // Try to extract city from title
+        let location = extractCityFromTitle(event.title);
+        
+        // If not found, try language detection (skip non-US)
+        if (!location) {
+          const lang = detectLanguage(event.title);
+          if (lang?.country && lang.country !== 'US') {
+            // Mark as non-US so we don't keep retrying
+            await pool.query('UPDATE events SET country = $1 WHERE id = $2', [lang.country, event.id]);
+            continue;
+          }
+        }
+        
+        if (location?.city) {
+          // Use geocoder to get coordinates
+          const filled = await fillLocation({
+            city: location.city,
+            state: location.state,
+            country: location.country || 'US'
+          });
+          
+          if (filled.latitude) {
+            await pool.query(`
+              UPDATE events 
+              SET city = $1, state = $2, country = $3, latitude = $4, longitude = $5
+              WHERE id = $6
+            `, [filled.city || location.city, filled.state || location.state, 
+                filled.country || 'US', filled.latitude, filled.longitude, event.id]);
+            updated++;
+          }
+        }
+      } catch (e) {
+        // Skip individual errors
+      }
+    }
+    
+    console.log(`[Admin] Title enrichment complete: ${updated} updated`);
+  } catch (e) {
+    console.error('[Admin] Title enrichment error:', e.message);
+  }
+});
