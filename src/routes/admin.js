@@ -535,3 +535,53 @@ router.post('/enrich/titles', authMiddleware, async (req, res) => {
     console.error('[Admin] Title enrichment error:', e.message);
   }
 });
+
+// Fill state from coordinates for map-ready events
+router.post('/fill-states', authMiddleware, async (req, res) => {
+  try {
+    res.json({ message: 'State fill started' });
+    
+    const { pool } = require('../db');
+    const axios = require('axios');
+    
+    // Get events with coords but no state
+    const result = await pool.query(`
+      SELECT id, latitude, longitude 
+      FROM events 
+      WHERE latitude IS NOT NULL 
+        AND (state IS NULL OR state = '')
+      LIMIT 500
+    `);
+    
+    console.log(\`[Admin] Filling state for \${result.rows.length} events...\`);
+    let updated = 0;
+    
+    for (const event of result.rows) {
+      try {
+        const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+        const response = await axios.get(
+          \`https://maps.googleapis.com/maps/api/geocode/json?latlng=\${event.latitude},\${event.longitude}&key=\${apiKey}\`,
+          { timeout: 5000 }
+        );
+        
+        if (response.data.status === 'OK' && response.data.results[0]) {
+          const components = response.data.results[0].address_components;
+          const stateComp = components.find(c => c.types.includes('administrative_area_level_1'));
+          const cityComp = components.find(c => c.types.includes('locality'));
+          
+          if (stateComp) {
+            await pool.query(
+              'UPDATE events SET state = $1, city = COALESCE(NULLIF(city, \\'\\'), NULLIF(city, \\'UNKNOWN\\'), $2) WHERE id = $3',
+              [stateComp.long_name, cityComp?.long_name, event.id]
+            );
+            updated++;
+          }
+        }
+      } catch (e) {}
+    }
+    
+    console.log(\`[Admin] State fill complete: \${updated} updated\`);
+  } catch (e) {
+    console.error('[Admin] State fill error:', e.message);
+  }
+});
