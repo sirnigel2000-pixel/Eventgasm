@@ -11,10 +11,8 @@ import {
   FlatList,
   Dimensions,
   ActivityIndicator,
-  Animated,
-  PanResponder,
 } from 'react-native';
-import MapView, { Marker, Callout } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -23,8 +21,6 @@ import { colors, shadows } from '../theme';
 import { format } from 'date-fns';
 
 const { width, height } = Dimensions.get('window');
-const LIST_MIN_HEIGHT = 60;
-const LIST_MAX_HEIGHT = height * 0.6;
 
 const CATEGORY_COLORS = {
   'Music': '#e91e63', 'Concert': '#e91e63', 'Sports': '#34C759',
@@ -45,33 +41,10 @@ export default function MapScreen({ navigation }) {
   const [fetching, setFetching] = useState(false);
   const [viewMode, setViewMode] = useState('states');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [showFilters, setShowFilters] = useState(false);
+  const [showList, setShowList] = useState(false);
   
   const mapRef = useRef(null);
   const debounceRef = useRef(null);
-  const listHeight = useRef(new Animated.Value(LIST_MIN_HEIGHT)).current;
-  const [listExpanded, setListExpanded] = useState(false);
-
-  // Pan responder for list drag
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gestureState) => {
-        const newHeight = listExpanded 
-          ? LIST_MAX_HEIGHT - gestureState.dy 
-          : LIST_MIN_HEIGHT - gestureState.dy;
-        listHeight.setValue(Math.max(LIST_MIN_HEIGHT, Math.min(LIST_MAX_HEIGHT, newHeight)));
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const shouldExpand = gestureState.dy < -50 || (listExpanded && gestureState.dy < 50);
-        Animated.spring(listHeight, {
-          toValue: shouldExpand ? LIST_MAX_HEIGHT : LIST_MIN_HEIGHT,
-          useNativeDriver: false,
-        }).start();
-        setListExpanded(shouldExpand);
-      },
-    })
-  ).current;
 
   useEffect(() => {
     loadStateCounts();
@@ -112,7 +85,7 @@ export default function MapScreen({ navigation }) {
           longitudeDelta: 40,
         });
       }
-    } catch {
+    } catch (e) {
       setRegion({
         latitude: 39.8283,
         longitude: -98.5795,
@@ -128,6 +101,7 @@ export default function MapScreen({ navigation }) {
     if (newRegion.latitudeDelta > STATE_VIEW_THRESHOLD) {
       setViewMode('states');
       setEvents([]);
+      setShowList(false);
     } else {
       setViewMode('events');
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -212,7 +186,16 @@ export default function MapScreen({ navigation }) {
   };
 
   const getColor = (cat) => CATEGORY_COLORS[cat] || CATEGORY_COLORS.default;
-  const formatDate = (d) => d ? format(new Date(d), 'MMM d · h:mm a') : '';
+  
+  const formatDate = (d) => {
+    if (!d) return '';
+    try {
+      return format(new Date(d), 'MMM d · h:mm a');
+    } catch (e) {
+      return '';
+    }
+  };
+  
   const formatCount = (c) => c >= 1000 ? `${(c/1000).toFixed(1)}k` : c.toString();
   
   const getBubbleSize = (count) => {
@@ -250,7 +233,7 @@ export default function MapScreen({ navigation }) {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
-        style={styles.map}
+        style={[styles.map, showList && { height: height * 0.45 }]}
         initialRegion={region}
         onRegionChangeComplete={handleRegionChangeComplete}
         showsUserLocation
@@ -337,7 +320,7 @@ export default function MapScreen({ navigation }) {
         
         <TouchableOpacity
           style={styles.controlBtn}
-          onPress={async () => {
+          onPress={() => {
             if (userLocation) {
               mapRef.current?.animateToRegion({
                 ...userLocation,
@@ -349,16 +332,28 @@ export default function MapScreen({ navigation }) {
         >
           <Ionicons name="locate" size={22} color={colors.primary} />
         </TouchableOpacity>
+
+        {/* List toggle button */}
+        {viewMode === 'events' && (
+          <TouchableOpacity
+            style={[styles.controlBtn, showList && styles.controlBtnActive]}
+            onPress={() => setShowList(!showList)}
+          >
+            <Ionicons name="list" size={22} color={showList ? '#fff' : colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Sliding list panel */}
-      {viewMode === 'events' && (
-        <Animated.View style={[styles.listPanel, { height: listHeight }]}>
-          <View {...panResponder.panHandlers} style={styles.dragHandle}>
-            <View style={styles.handleBar} />
+      {/* Event list panel */}
+      {viewMode === 'events' && showList && (
+        <View style={styles.listPanel}>
+          <View style={styles.listHeader}>
             <Text style={styles.listTitle}>
               {sortedEvents.length} Events {userLocation ? '(by distance)' : ''}
             </Text>
+            <TouchableOpacity onPress={() => setShowList(false)}>
+              <Ionicons name="close" size={22} color="#666" />
+            </TouchableOpacity>
           </View>
           
           <FlatList
@@ -368,7 +363,7 @@ export default function MapScreen({ navigation }) {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
-        </Animated.View>
+        </View>
       )}
     </View>
   );
@@ -417,8 +412,7 @@ const styles = StyleSheet.create({
   controls: {
     position: 'absolute',
     right: 16,
-    bottom: 180,
-    gap: 10,
+    bottom: 100,
   },
   controlBtn: {
     width: 44,
@@ -428,7 +422,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.md,
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  controlBtnActive: {
+    backgroundColor: colors.primary,
   },
   
   bubble: {
@@ -440,27 +437,20 @@ const styles = StyleSheet.create({
   bubbleCount: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   
   listPanel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    flex: 1,
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     ...shadows.lg,
   },
-  dragHandle: {
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#ddd',
-    borderRadius: 2,
-    marginBottom: 8,
   },
   listTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
   listContent: { paddingHorizontal: 16 },
