@@ -315,10 +315,48 @@ router.get('/unusable', authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE /admin/cleanup - Remove unusable events
-router.delete('/cleanup', authMiddleware, async (req, res) => {
+// POST /admin/cleanup/mark - Mark unusable events (does NOT delete)
+router.post('/cleanup/mark', authMiddleware, async (req, res) => {
   try {
-    // Delete events that can't be shown properly
+    // Mark events as unusable (add a flag column if needed)
+    const result = await pool.query(`
+      UPDATE events SET is_hidden = true
+      WHERE title IS NULL OR title = ''
+         OR (city IS NULL OR city IN ('', 'Various', 'Unknown'))
+         OR start_time IS NULL
+         OR start_time < NOW()
+      RETURNING id
+    `);
+    
+    const marked = result.rowCount;
+    res.json({ marked, message: `Marked ${marked} events as hidden (not deleted)` });
+  } catch (err) {
+    // If is_hidden column doesn't exist, just count them
+    const countResult = await pool.query(`
+      SELECT COUNT(*) FROM events 
+      WHERE title IS NULL OR title = ''
+         OR (city IS NULL OR city IN ('', 'Various', 'Unknown'))
+         OR start_time IS NULL
+         OR start_time < NOW()
+    `);
+    res.json({ 
+      unusable: parseInt(countResult.rows[0].count),
+      message: 'Counted unusable events (is_hidden column may need to be added)'
+    });
+  }
+});
+
+// DELETE /admin/cleanup/confirm - ACTUALLY delete (requires explicit call)
+router.delete('/cleanup/confirm', authMiddleware, async (req, res) => {
+  try {
+    const { confirm } = req.query;
+    if (confirm !== 'yes-delete-unusable') {
+      return res.status(400).json({ 
+        error: 'Safety check failed', 
+        message: 'Add ?confirm=yes-delete-unusable to actually delete'
+      });
+    }
+    
     const result = await pool.query(`
       DELETE FROM events 
       WHERE title IS NULL OR title = ''
@@ -329,17 +367,12 @@ router.delete('/cleanup', authMiddleware, async (req, res) => {
     `);
     
     const deleted = result.rowCount;
-    console.log(`[Cleanup] Removed ${deleted} unusable events`);
+    console.log(`[Cleanup] DELETED ${deleted} unusable events (confirmed by user)`);
     
-    // Get new total
     const countResult = await pool.query('SELECT COUNT(*) FROM events');
     const remaining = parseInt(countResult.rows[0].count);
     
-    res.json({ 
-      deleted, 
-      remaining,
-      message: `Removed ${deleted} unusable events. ${remaining} quality events remain.`
-    });
+    res.json({ deleted, remaining, message: `Permanently removed ${deleted} events` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
