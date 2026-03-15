@@ -10,6 +10,7 @@ import { Image } from 'expo-image'; // Fast cached images
 import { formatEventDate, formatDateRange, formatDistance } from '../utils/formatters';
 import { useFavorites } from '../context/FavoritesContext';
 import haptics from '../utils/haptics';
+import CategoryPlaceholder from './CategoryPlaceholder';
 
 // Blurhash placeholder for loading state
 const PLACEHOLDER_BLUR = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
@@ -42,9 +43,11 @@ function EventCard({ event, onPress }) {
             cachePolicy="memory-disk"
           />
         ) : (
-          <View style={[styles.image, styles.placeholderImage]}>
-            <Text style={styles.placeholderEmoji}>🎉</Text>
-          </View>
+          <CategoryPlaceholder 
+            category={event.category}
+            title={event.title}
+            style={styles.image}
+          />
         )}
         
         {/* FREE Badge */}
@@ -156,14 +159,7 @@ const styles = StyleSheet.create({
     height: 160,
     backgroundColor: '#f0f0f0',
   },
-  placeholderImage: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#667eea',
-  },
-  placeholderEmoji: {
-    fontSize: 48,
-  },
+  
   freeBadge: {
     position: 'absolute',
     top: 12,

@@ -13,6 +13,7 @@ import {
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { fetchEvents } from '../services/api';
+import CategoryPlaceholder from '../components/CategoryPlaceholder';
 import EventCard from '../components/EventCard';
 import SearchBar from '../components/SearchBar';
 import SkeletonCard from '../components/SkeletonCard';
@@ -318,13 +319,19 @@ export default function HomeScreen({ navigation }) {
               style={styles.forYouCard}
               onPress={() => handleEventPress(event)}
             >
-              {event.image && (
+              {event.image ? (
                 <Image 
                   source={event.image}
                   style={styles.forYouImage}
                   contentFit="cover"
                   transition={150}
                   cachePolicy="memory-disk"
+                />
+              ) : (
+                <CategoryPlaceholder 
+                  category={event.category}
+                  title={event.title}
+                  style={styles.forYouImage}
                 />
               )}
               <View style={styles.forYouContent}>
