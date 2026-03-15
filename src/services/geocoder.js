@@ -121,3 +121,34 @@ async function fillLocation(data) {
 }
 
 module.exports = { geocodeWithGoogle, findVenue, geocodeFallback, fillLocation };
+
+// Google Custom Search - find event info online
+async function searchEventInfo(eventTitle, venueName) {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey || !eventTitle) return null;
+  
+  try {
+    const query = encodeURIComponent(\`\${eventTitle} \${venueName || ''} event location\`);
+    // Note: Custom Search requires a Search Engine ID (cx) to be configured
+    // For now, we'll use Places Text Search which is similar
+    const response = await axios.get(
+      \`https://maps.googleapis.com/maps/api/place/textsearch/json?query=\${query}&type=establishment&key=\${apiKey}\`,
+      { timeout: 5000 }
+    );
+    
+    if (response.data.status === 'OK' && response.data.results[0]) {
+      const place = response.data.results[0];
+      return {
+        venue_name: place.name,
+        latitude: place.geometry?.location?.lat,
+        longitude: place.geometry?.location?.lng,
+        formatted_address: place.formatted_address,
+      };
+    }
+  } catch (e) {
+    console.error('[Geocoder] Search error:', e.message);
+  }
+  return null;
+}
+
+module.exports.searchEventInfo = searchEventInfo;
