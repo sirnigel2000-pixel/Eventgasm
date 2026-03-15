@@ -211,6 +211,22 @@ function testRegressions() {
       assert(!badNav, 'SwipeScreen should navigate to ProfileTab, not Profile');
     }
   });
+
+  // BUG: Using isAuthenticated when AuthContext provides isSignedIn
+  test('Screens use correct auth property from context', () => {
+    const screens = ['ListsScreen.js', 'SwipeScreen.js'];
+    for (const screen of screens) {
+      if (fileExists(`src/screens/${screen}`)) {
+        const content = fs.readFileSync(path.join(MOBILE_DIR, `src/screens/${screen}`), 'utf8');
+        // If using isAuthenticated, must be aliased from isSignedIn
+        if (content.includes('isAuthenticated')) {
+          const hasAlias = content.includes('isSignedIn: isAuthenticated') || 
+                          content.includes('isSignedIn as isAuthenticated');
+          assert(hasAlias, `${screen} uses isAuthenticated but AuthContext provides isSignedIn`);
+        }
+      }
+    }
+  });
 }
 
 // ============================================
