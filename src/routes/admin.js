@@ -378,4 +378,76 @@ router.delete('/cleanup/confirm', authMiddleware, async (req, res) => {
   }
 });
 
+// ============================================
+// GEOCODING
+// ============================================
+
+// POST /admin/geocode - Geocode events without coordinates
+router.post('/geocode', authMiddleware, async (req, res) => {
+  try {
+    const geocoder = require('../services/geocoder');
+    const { limit = 100, mode = 'full' } = req.query;
+    
+    // First, ensure geocode_source column exists
+    await pool.query(`
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS geocode_source VARCHAR(50)
+    `).catch(() => {}); // Ignore if exists
+    
+    if (mode === 'quick') {
+      // Quick mode: use city/state fallbacks only (fast, no API calls)
+      const result = await geocoder.quickGeocodeEvents(parseInt(limit));
+      res.json({ 
+        message: 'Quick geocode complete', 
+        ...result,
+        mode: 'fallbacks_only'
+      });
+    } else {
+      // Full mode: use Nominatim API (slow, 1 req/sec)
+      res.json({ 
+        message: 'Geocoding started in background', 
+        limit: parseInt(limit),
+        note: 'Rate limited to 1 request/second. Check logs for progress.'
+      });
+      
+      // Run in background
+      geocoder.geocodeEvents(parseInt(limit)).then(result => {
+        console.log('[Admin] Geocoding complete:', result);
+      }).catch(err => {
+        console.error('[Admin] Geocoding error:', err);
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /admin/geocode/stats - Get geocoding statistics
+router.get('/geocode/stats', authMiddleware, async (req, res) => {
+  try {
+    const stats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_events,
+        COUNT(CASE WHEN latitude IS NOT NULL THEN 1 END) as geocoded,
+        COUNT(CASE WHEN latitude IS NULL AND city IS NOT NULL THEN 1 END) as pending_with_city,
+        COUNT(CASE WHEN latitude IS NULL AND city IS NULL THEN 1 END) as no_location_data
+      FROM events
+      WHERE start_time >= NOW()
+    `);
+    
+    const bySource = await pool.query(`
+      SELECT geocode_source, COUNT(*) as count
+      FROM events
+      WHERE latitude IS NOT NULL AND geocode_source IS NOT NULL
+      GROUP BY geocode_source
+    `);
+    
+    res.json({
+      ...stats.rows[0],
+      bySource: bySource.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
