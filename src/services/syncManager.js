@@ -374,3 +374,57 @@ setTimeout(() => {
 
 // Also expose for manual trigger
 module.exports.runContinuousEnrichment = runContinuousEnrichment;
+
+// After main enrichment, fill states for events with coords but no state
+async function fillStatesFromCoords() {
+  console.log('[Enricher] Starting state fill from coords...');
+  const { pool } = require('../db');
+  const axios = require('axios');
+  
+  let totalUpdated = 0;
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  
+  while (true) {
+    const result = await pool.query(`
+      SELECT id, latitude, longitude 
+      FROM events 
+      WHERE latitude IS NOT NULL 
+        AND (state IS NULL OR state = '')
+      LIMIT 100
+    `);
+    
+    if (result.rows.length === 0) {
+      console.log(`[Enricher] State fill complete! Total: ${totalUpdated}`);
+      break;
+    }
+    
+    for (const event of result.rows) {
+      try {
+        const response = await axios.get(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${event.latitude},${event.longitude}&key=${apiKey}`,
+          { timeout: 5000 }
+        );
+        
+        if (response.data.status === 'OK' && response.data.results[0]) {
+          const components = response.data.results[0].address_components;
+          const stateComp = components.find(c => c.types.includes('administrative_area_level_1'));
+          const cityComp = components.find(c => c.types.includes('locality'));
+          
+          if (stateComp) {
+            await pool.query(
+              \`UPDATE events SET state = $1, city = CASE WHEN city IS NULL OR city = '' OR city = 'UNKNOWN' THEN $2 ELSE city END WHERE id = $3\`,
+              [stateComp.long_name, cityComp?.long_name || null, event.id]
+            );
+            totalUpdated++;
+          }
+        }
+      } catch (e) {}
+    }
+    
+    console.log(`[Enricher] State fill progress: ${totalUpdated}`);
+    await new Promise(r => setTimeout(r, 100));
+  }
+}
+
+// Run state fill after enrichment completes
+// (called from runContinuousEnrichment when done)
