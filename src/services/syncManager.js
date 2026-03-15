@@ -36,6 +36,8 @@ const concertScraper = safeRequire('./concertScraper', 'Concert');
 const festivalnetScraper = safeRequire('./festivalnetScraper', 'Festivalnet');
 const newsScraper = safeRequire('./newsScraper', 'News');
 const venueScraper = safeRequire('./venueScraper', 'Venue');
+const stubhubSitemap = safeRequire('./stubhubSitemapScraper', 'StubHub Sitemap');
+const axsSitemap = safeRequire('./axsSitemapScraper', 'AXS Sitemap');
 
 // Track sync status
 let isSyncing = false;
@@ -138,6 +140,8 @@ async function runFullSync() {
     stats.venues = await runScraper('venues', venueScraper?.syncAll);
     stats.news = await runScraper('news', newsScraper?.syncAll);
     stats.concert = await runScraper('concert', concertScraper?.syncAll);
+    stats.stubhub = await runScraper('stubhub', stubhubSitemap?.scrape);
+    stats.axs = await runScraper('axs', axsSitemap?.scrape);
 
     // TIER 2: MEDIUM-YIELD SOURCES (run in parallel batches of 3)
     console.log('\n[SyncManager] === TIER 2: MEDIUM-YIELD SOURCES ===');

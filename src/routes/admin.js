@@ -451,3 +451,25 @@ router.get('/geocode/stats', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+
+// StubHub sitemap
+router.post('/sync/stubhub-sitemap', authMiddleware, async (req, res) => {
+  try {
+    const scraper = require('../services/stubhubSitemapScraper');
+    res.json({ message: 'StubHub sitemap sync started' });
+    scraper.scrape().then(r => console.log('[Admin] StubHub done:', r));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// AXS sitemap
+router.post('/sync/axs-sitemap', authMiddleware, async (req, res) => {
+  try {
+    const scraper = require('../services/axsSitemapScraper');
+    res.json({ message: 'AXS sitemap sync started' });
+    scraper.scrape().then(r => console.log('[Admin] AXS done:', r));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
