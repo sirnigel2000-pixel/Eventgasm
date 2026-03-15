@@ -291,3 +291,20 @@ router.post('/sync/mass', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// POST /admin/sync/festivalnet - Run ONLY Festivalnet scraper
+router.post('/sync/festivalnet', authMiddleware, async (req, res) => {
+  try {
+    const festivalnetScraper = require('../services/festivalnetScraper');
+    
+    res.json({ message: 'Festivalnet sync started', status: 'running' });
+    
+    // Run async
+    festivalnetScraper.syncAll()
+      .then(count => console.log(`[Admin] Festivalnet sync complete: +${count}`))
+      .catch(err => console.error('[Admin] Festivalnet sync error:', err.message));
+      
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
