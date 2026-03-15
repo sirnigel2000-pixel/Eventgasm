@@ -161,6 +161,30 @@ router.get('/recommended', async (req, res) => {
     // Filter out events without images (swipe needs visual appeal)
     events = events.filter(e => e.image_url);
     
+    // Filter out garbage/placeholder events
+    const garbagePatterns = [
+      /^deposit/i,
+      /^\$?\d+\.?\d*$/,  // Just a number/price
+      /^test/i,
+      /^placeholder/i,
+      /^tbd$/i,
+      /^tba$/i,
+      /^coming soon$/i,
+      /^event$/i,
+      /^untitled$/i,
+      /private event/i,
+      /staff only/i,
+      /internal/i,
+    ];
+    events = events.filter(e => {
+      const title = (e.title || '').trim();
+      if (title.length < 5) return false;
+      for (const pattern of garbagePatterns) {
+        if (pattern.test(title)) return false;
+      }
+      return true;
+    });
+    
     // Add variety: shuffle within distance bands, mix categories
     events = addVariety(events);
     

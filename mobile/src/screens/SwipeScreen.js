@@ -166,8 +166,18 @@ const SwipeScreen = ({ navigation }) => {
       const response = await api.get('/events/recommended', { params });
       
       if (response.data.success) {
+        // Filter out garbage events
+        const garbageWords = ['deposit', 'test', 'placeholder', 'tbd', 'tba', 'private', 'staff only'];
         let newEvents = (response.data.events || [])
-          .filter(e => e.image || e.title?.length > 5);
+          .filter(e => {
+            const title = (e.title || '').toLowerCase();
+            if (title.length < 5) return false;
+            if (/^\$?\d+\.?\d*$/.test(title)) return false; // Just a price
+            for (const word of garbageWords) {
+              if (title.includes(word)) return false;
+            }
+            return e.image || title.length > 10;
+          });
         
         // DEDUPE: Remove events we've already seen
         const existingIds = new Set(events.map(e => e.id));
