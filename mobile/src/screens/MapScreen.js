@@ -65,12 +65,15 @@ export default function MapScreen({ navigation }) {
 
   const loadStateCounts = async () => {
     try {
-      const response = await api.get('/events/counts/by-state');
+      // Use longer timeout for this slow query
+      const response = await api.get('/events/counts/by-state', { timeout: 90000 });
       if (response.data.success) {
         setStateCounts(response.data.states || []);
       }
     } catch (error) {
       console.error('Error loading state counts:', error);
+      // Set empty array to prevent crash, map will still work without bubbles
+      setStateCounts([]);
     }
   };
 
@@ -141,12 +144,18 @@ export default function MapScreen({ navigation }) {
       
       if (response.data.success) {
         const eventsWithCoords = (response.data.events || [])
-          .filter(e => e.latitude && e.longitude)
-          .map(e => ({
-            ...e,
-            latitude: parseFloat(e.latitude),
-            longitude: parseFloat(e.longitude),
-          }));
+          .map(e => {
+            // Get coordinates from top-level or venue.coordinates
+            const lat = e.latitude || e.venue?.coordinates?.lat;
+            const lng = e.longitude || e.venue?.coordinates?.lng;
+            if (!lat || !lng) return null;
+            return {
+              ...e,
+              latitude: parseFloat(lat),
+              longitude: parseFloat(lng),
+            };
+          })
+          .filter(Boolean);
         setEvents(eventsWithCoords);
       }
     } catch (error) {
