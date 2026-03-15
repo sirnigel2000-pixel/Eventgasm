@@ -113,6 +113,7 @@ const NEWS_SOURCES = [
   
   // UTAH
   { city: 'Salt Lake City', state: 'UT', feeds: ['https://www.sltrib.com/entertainment/rss/'] },
+  { city: 'Jackson Hole', state: 'WY', feeds: ['https://www.jhnewsandguide.com/rss/'] },
   
   // ALABAMA
   { city: 'Birmingham', state: 'AL', feeds: ['https://www.al.com/entertainment/rss/'] },
