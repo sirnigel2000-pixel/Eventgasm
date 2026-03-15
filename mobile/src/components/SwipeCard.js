@@ -175,7 +175,8 @@ const SwipeCard = ({
             />
           ) : (
             <CategoryPlaceholder 
-              category={event.category} 
+              category={event.category}
+              title={event.title}
               style={styles.image}
               iconSize={120}
             />

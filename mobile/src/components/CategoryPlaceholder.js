@@ -1,12 +1,38 @@
 /**
  * CategoryPlaceholder - Elegant gradient backgrounds for events without images
  * Apple-inspired minimal aesthetic
+ * 
+ * For uncategorized events: extracts keyword from title (expo, festival, fair, show, etc.)
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+
+// Keywords to extract from event titles for the metallic placeholder
+const EVENT_KEYWORDS = [
+  'expo', 'festival', 'fair', 'show', 'concert', 'game', 'match', 
+  'gala', 'party', 'meetup', 'summit', 'conference', 'workshop',
+  'seminar', 'lecture', 'tour', 'exhibit', 'market', 'bazaar',
+  'race', 'marathon', 'championship', 'tournament', 'recital',
+  'performance', 'screening', 'premiere', 'opening', 'celebration',
+  'parade', 'carnival', 'rodeo', 'circus', 'comedy', 'opera',
+  'ballet', 'musical', 'play', 'auction', 'tasting', 'brunch',
+];
+
+// Extract a keyword from event title
+function extractKeyword(title) {
+  if (!title) return null;
+  const lowerTitle = title.toLowerCase();
+  
+  for (const keyword of EVENT_KEYWORDS) {
+    if (lowerTitle.includes(keyword)) {
+      return keyword.toUpperCase();
+    }
+  }
+  return null;
+}
 
 // Category configurations with gradients and icons
 const CATEGORY_CONFIG = {
@@ -135,21 +161,26 @@ const CATEGORY_CONFIG = {
     iconColor: 'rgba(255,255,255,0.1)',
   },
   
-  // Default
+  // Default - Dark metallic grey
   default: {
-    gradient: ['#2c3e50', '#34495e', '#415b76'],
-    icon: 'calendar',
-    iconColor: 'rgba(255,255,255,0.1)',
+    gradient: ['#2d2d2d', '#3d3d3d', '#4a4a4a', '#3d3d3d', '#2d2d2d'],
+    icon: null, // No icon for default - use keyword text
+    iconColor: 'rgba(255,255,255,0.08)',
   },
 };
 
 const CategoryPlaceholder = ({ 
   category, 
+  title,
   style, 
   iconSize = 80,
   showIcon = true 
 }) => {
   const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.default;
+  const isDefault = !CATEGORY_CONFIG[category];
+  
+  // For default/unknown categories, try to extract keyword from title
+  const keyword = isDefault ? extractKeyword(title) : null;
   
   return (
     <LinearGradient
@@ -158,7 +189,25 @@ const CategoryPlaceholder = ({
       end={{ x: 1, y: 1 }}
       style={[styles.container, style]}
     >
-      {showIcon && (
+      {/* Metallic sheen overlay for default */}
+      {isDefault && (
+        <LinearGradient
+          colors={['rgba(255,255,255,0.05)', 'transparent', 'rgba(255,255,255,0.03)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sheenOverlay}
+        />
+      )}
+      
+      {/* Keyword text for default category */}
+      {isDefault && keyword && (
+        <View style={styles.keywordContainer}>
+          <Text style={styles.keywordText}>{keyword}</Text>
+        </View>
+      )}
+      
+      {/* Icon for known categories */}
+      {showIcon && config.icon && !isDefault && (
         <View style={styles.iconContainer}>
           <Ionicons 
             name={config.icon} 
@@ -167,7 +216,8 @@ const CategoryPlaceholder = ({
           />
         </View>
       )}
-      {/* Subtle texture overlay */}
+      
+      {/* Subtle texture/grain effect */}
       <View style={styles.noiseOverlay} />
     </LinearGradient>
   );
@@ -180,17 +230,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
   },
+  sheenOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
   iconContainer: {
     position: 'absolute',
     right: -10,
     bottom: -10,
     opacity: 0.8,
   },
+  keywordContainer: {
+    position: 'absolute',
+    bottom: 20,
+    right: 15,
+    transform: [{ rotate: '-8deg' }],
+  },
+  keywordText: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: 'rgba(255,255,255,0.08)',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+  },
   noiseOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
-    // Subtle grain effect via opacity pattern
-    opacity: 0.03,
+    opacity: 0.02,
   },
 });
 
