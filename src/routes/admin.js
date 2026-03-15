@@ -536,6 +536,34 @@ router.post('/enrich/titles', authMiddleware, async (req, res) => {
   }
 });
 
+// Generate descriptions for events missing them
+router.post('/fill-descriptions', authMiddleware, async (req, res) => {
+  const { limit = 1000 } = req.query;
+  
+  res.json({ message: 'Description generation started', limit });
+  
+  try {
+    const { fillMissingDescriptions } = require('../services/descriptionGenerator');
+    const result = await fillMissingDescriptions(parseInt(limit));
+    console.log('[Admin] Description fill complete:', result);
+  } catch (e) {
+    console.error('[Admin] Description fill error:', e.message);
+  }
+});
+
+// Scrape/recategorize comedy events
+router.post('/scrape-comedy', authMiddleware, async (req, res) => {
+  res.json({ message: 'Comedy scraper started' });
+  
+  try {
+    const { scrapeComedy } = require('../services/comedyScraper');
+    const result = await scrapeComedy();
+    console.log('[Admin] Comedy scrape complete:', result);
+  } catch (e) {
+    console.error('[Admin] Comedy scrape error:', e.message);
+  }
+});
+
 // Fill state from coordinates for map-ready events
 router.post('/fill-states', authMiddleware, async (req, res) => {
   try {
