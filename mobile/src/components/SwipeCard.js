@@ -17,6 +17,8 @@ import {
   Pressable,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import CategoryPlaceholder from './CategoryPlaceholder';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -162,17 +164,29 @@ const SwipeCard = ({
           style={styles.cardInner}
           onPress={() => onPress?.(event)}
         >
-          {/* Event Image */}
-          <Image
-            source={{ uri: event.image_url || event.image }}
-            style={styles.image}
-            contentFit="cover"
-            placeholder={{ blurhash: 'LKO2?U%2Tw=w]~RBVZRi};RPxuwH' }}
-            transition={200}
-          />
+          {/* Event Image or Category Placeholder */}
+          {(event.image_url || event.image) ? (
+            <Image
+              source={{ uri: event.image_url || event.image }}
+              style={styles.image}
+              contentFit="cover"
+              placeholder={{ blurhash: 'LKO2?U%2Tw=w]~RBVZRi};RPxuwH' }}
+              transition={200}
+            />
+          ) : (
+            <CategoryPlaceholder 
+              category={event.category} 
+              style={styles.image}
+              iconSize={120}
+            />
+          )}
 
           {/* Gradient overlay for text readability */}
-          <View style={styles.gradient} />
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.85)']}
+            locations={[0.3, 0.6, 1]}
+            style={styles.gradient}
+          />
 
           {/* Swipe direction overlays */}
           <Animated.View style={[styles.labelOverlay, styles.rightLabel, rightOverlayStyle]}>
@@ -278,8 +292,6 @@ const styles = StyleSheet.create({
   },
   gradient: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
-    backgroundImage: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.8) 100%)',
   },
   content: {
     position: 'absolute',
