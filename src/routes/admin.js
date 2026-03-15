@@ -274,4 +274,29 @@ router.post('/sync/songkick-sitemap', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /admin/enrich - Enrich incomplete events with real data
+router.post('/enrich', authMiddleware, async (req, res) => {
+  try {
+    const enricher = require('../services/eventEnricher');
+    const stats = await enricher.getIncompleteStats();
+    res.json({ message: 'Enrichment started', incompleteStats: stats, status: 'running' });
+    enricher.enrichEvents()
+      .then(count => console.log(`[Admin] Enrichment complete: ${count} events updated`))
+      .catch(err => console.error('[Admin] Enrichment error:', err.message));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /admin/enrich/stats - Get incomplete event stats
+router.get('/enrich/stats', authMiddleware, async (req, res) => {
+  try {
+    const enricher = require('../services/eventEnricher');
+    const stats = await enricher.getIncompleteStats();
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

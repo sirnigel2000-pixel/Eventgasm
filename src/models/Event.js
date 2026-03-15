@@ -151,6 +151,60 @@ class Event {
     return result.rows;
   }
 
+  // Find events within bounding box (for map view)
+  static async findInBounds({ minLat, maxLat, minLng, maxLng, limit = 500, offset = 0, category, startDate, endDate, isFree, source }) {
+    let whereClause = `
+      latitude IS NOT NULL AND longitude IS NOT NULL 
+      AND latitude BETWEEN $1 AND $2
+      AND longitude BETWEEN $3 AND $4
+      AND start_time >= NOW()
+    `;
+    const params = [minLat, maxLat, minLng, maxLng];
+    let paramIndex = 5;
+
+    if (category) {
+      whereClause += ` AND category = $${paramIndex}`;
+      params.push(category);
+      paramIndex++;
+    }
+
+    if (isFree) {
+      whereClause += ` AND is_free = true`;
+    }
+
+    if (source) {
+      whereClause += ` AND source = $${paramIndex}`;
+      params.push(source);
+      paramIndex++;
+    }
+
+    if (startDate) {
+      whereClause += ` AND start_time >= $${paramIndex}`;
+      params.push(startDate);
+      paramIndex++;
+    }
+
+    if (endDate) {
+      whereClause += ` AND start_time <= $${paramIndex}`;
+      params.push(endDate);
+      paramIndex++;
+    }
+
+    params.push(limit, offset);
+
+    const query = `
+      SELECT id, title, category, latitude, longitude, start_time, 
+             venue_name, city, state, image_url, is_free, price_min
+      FROM events
+      WHERE ${whereClause}
+      ORDER BY start_time ASC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    const result = await pool.query(query, params);
+    return result.rows;
+  }
+
   // Find events by city/state
   static async findByLocation({ city, state, limit = 50, offset = 0, category, startDate, endDate, isFree, source }) {
     let query = `

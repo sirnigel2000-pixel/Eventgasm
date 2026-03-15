@@ -63,6 +63,8 @@ router.get('/', async (req, res) => {
   try {
     const {
       lat, lng, radius = 25,
+      // Bounding box params for map view
+      min_lat, max_lat, min_lng, max_lng,
       city, state,
       category,
       free,        // New: filter for free events only
@@ -70,7 +72,8 @@ router.get('/', async (req, res) => {
       vibe,        // New: vibe filter (chill, rowdy, artsy, etc.)
       start_date, end_date,
       q, search,   // search query (support both)
-      limit = 50, offset = 0
+      limit = 50, offset = 0,
+      cluster      // If true, return clustered results for map
     } = req.query;
 
     const query = q || search;
@@ -87,6 +90,21 @@ router.get('/', async (req, res) => {
         isFree: isFreeOnly,
         source,
         category
+      });
+    } else if (min_lat && max_lat && min_lng && max_lng) {
+      // Bounding box search for map view
+      events = await Event.findInBounds({
+        minLat: parseFloat(min_lat),
+        maxLat: parseFloat(max_lat),
+        minLng: parseFloat(min_lng),
+        maxLng: parseFloat(max_lng),
+        limit: Math.min(parseInt(limit), 500), // Cap at 500 for map performance
+        offset: parseInt(offset),
+        category,
+        startDate: start_date,
+        endDate: end_date,
+        isFree: isFreeOnly,
+        source
       });
     } else if (lat && lng) {
       // Geospatial search with smart radius expansion for rural areas
