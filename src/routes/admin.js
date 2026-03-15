@@ -215,82 +215,6 @@ router.post('/events/mark-free', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
-
-// B2B Lead Generation
-router.get('/leads/generate', authMiddleware, async (req, res) => {
-  try {
-    const leadScraper = require('../services/leadScraper');
-    const Event = require('../models/Event');
-    
-    const leads = await leadScraper.getLeadsFromEvents(Event);
-    
-    res.json({
-      count: leads.length,
-      leads: leads.slice(0, 50), // Preview first 50
-      message: 'Use /leads/export for full CSV'
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/leads/export', authMiddleware, async (req, res) => {
-  try {
-    const leadScraper = require('../services/leadScraper');
-    const Event = require('../models/Event');
-    
-    const leads = await leadScraper.getLeadsFromEvents(Event);
-    const csv = leadScraper.exportToCSV(leads);
-    
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=eventgasm_leads.csv');
-    res.send(csv);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Power Scraper - Differentiator events
-router.post('/sync/power', authMiddleware, async (req, res) => {
-  try {
-    const powerScraper = require('../services/powerScraper');
-    
-    // Run async, return immediately
-    powerScraper.runAllPowerScrapers().then(results => {
-      console.log('[Admin] Power scrape complete:', results);
-    }).catch(err => {
-      console.error('[Admin] Power scrape error:', err);
-    });
-    
-    res.json({ message: 'Power scrape started', status: 'running' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Mass Sync - Aggressive overnight scrape for 100K target
-router.post('/sync/mass', authMiddleware, async (req, res) => {
-  try {
-    const massSync = require('../services/massSync');
-    
-    // Run async
-    massSync.runMassSync().then(stats => {
-      console.log('[Admin] Mass sync complete:', stats);
-    }).catch(err => {
-      console.error('[Admin] Mass sync error:', err);
-    });
-    
-    res.json({ 
-      message: 'Mass sync started - targeting 100K events',
-      cities: 60,
-      sources: ['allevents', 'eventbrite', 'bandsintown'],
-      status: 'running'
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // POST /admin/sync/festivalnet - Run ONLY Festivalnet scraper
 router.post('/sync/festivalnet', authMiddleware, async (req, res) => {
@@ -308,3 +232,5 @@ router.post('/sync/festivalnet', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+module.exports = router;
