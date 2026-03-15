@@ -304,6 +304,37 @@ router.get('/sources', async (req, res) => {
   }
 });
 
+// GET /api/events/stats - Get total event counts
+router.get('/stats', async (req, res) => {
+  try {
+    const { pool } = require('../db');
+    const totalResult = await pool.query('SELECT COUNT(*) as total FROM events');
+    const futureResult = await pool.query('SELECT COUNT(*) as future FROM events WHERE start_time >= NOW()');
+    const sourcesResult = await pool.query(`
+      SELECT source, COUNT(*) as count 
+      FROM events 
+      GROUP BY source 
+      ORDER BY count DESC
+    `);
+    const recentResult = await pool.query(`
+      SELECT COUNT(*) as recent 
+      FROM events 
+      WHERE created_at > NOW() - INTERVAL '1 hour'
+    `);
+    
+    res.json({ 
+      success: true,
+      total: parseInt(totalResult.rows[0].total),
+      future: parseInt(futureResult.rows[0].future),
+      addedLastHour: parseInt(recentResult.rows[0].recent),
+      sources: sourcesResult.rows.map(r => ({ source: r.source, count: parseInt(r.count) }))
+    });
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch stats' });
+  }
+});
+
 // GET /api/events/:id
 router.get('/:id', async (req, res) => {
   try {
