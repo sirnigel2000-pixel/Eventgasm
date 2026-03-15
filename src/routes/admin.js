@@ -248,4 +248,30 @@ router.post('/sync/eventbrite-sitemap', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /admin/sync/vividseats-sitemap - Run Vivid Seats sitemap scraper
+router.post('/sync/vividseats-sitemap', authMiddleware, async (req, res) => {
+  try {
+    const vividSeatsSitemap = require('../services/vividSeatsSitemapScraper');
+    res.json({ message: 'Vivid Seats sitemap sync started', status: 'running' });
+    vividSeatsSitemap.syncAll()
+      .then(count => console.log(`[Admin] Vivid Seats sitemap sync complete: +${count}`))
+      .catch(err => console.error('[Admin] Vivid Seats sitemap sync error:', err.message));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /admin/sync/songkick-sitemap - Run Songkick sitemap scraper
+router.post('/sync/songkick-sitemap', authMiddleware, async (req, res) => {
+  try {
+    const songkickSitemap = require('../services/songkickSitemapScraper');
+    res.json({ message: 'Songkick sitemap sync started', status: 'running' });
+    songkickSitemap.syncAll()
+      .then(count => console.log(`[Admin] Songkick sitemap sync complete: +${count}`))
+      .catch(err => console.error('[Admin] Songkick sitemap sync error:', err.message));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
