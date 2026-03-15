@@ -154,16 +154,15 @@ const SwipeScreen = ({ navigation }) => {
     try {
       if (reset) setLoading(true);
       
-      const params = { limit: 100, offset: reset ? 0 : events.length };
+      const params = { limit: 50, offset: reset ? 0 : events.length };
       if (location) {
         params.lat = location.latitude;
         params.lng = location.longitude;
-        params.radius = filters.maxDistance;
+        params.radius = filters.maxDistance || 50;
       }
-      // Add randomization seed to get different results
-      params.seed = Date.now();
 
-      const response = await api.get('/events/recommended', { params });
+      // Use faster /events endpoint instead of slow /recommended
+      const response = await api.get('/events', { params });
       
       if (response.data.success) {
         // Filter out garbage events
