@@ -196,7 +196,7 @@ const SwipeScreen = ({ navigation }) => {
         <View style={styles.header}>
           <Pressable 
             style={styles.headerButton}
-            onPress={() => navigation.navigate('Profile')}
+            onPress={() => navigation.navigate('ProfileTab')}
           >
             <Ionicons name="person-circle-outline" size={28} color={colors.primary} />
           </Pressable>

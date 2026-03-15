@@ -2,9 +2,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cache, cacheKey } from './cache';
 
-const API_BASE = __DEV__ 
-  ? 'http://localhost:4600/api'
-  : 'https://eventgasm.onrender.com/api';
+// Always use production API (localhost won't work from phone)
+const API_BASE = 'https://eventgasm.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE,
