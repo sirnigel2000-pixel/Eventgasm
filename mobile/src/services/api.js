@@ -7,7 +7,7 @@ const API_BASE = 'https://eventgasm.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 15000,
+  timeout: 30000, // Increased for Render cold starts
 });
 
 // Add auth interceptor to include user_id in requests
