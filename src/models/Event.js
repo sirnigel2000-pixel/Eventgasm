@@ -157,6 +157,9 @@ class Event {
     `;
     params.push(radiusMiles, limit, offset);
 
+    console.log("[findInBounds] Query:", query);
+    console.log("[findInBounds] Params:", params);
+
     const result = await pool.query(query, params);
     return result.rows;
   }
@@ -210,6 +213,9 @@ class Event {
       ORDER BY start_time ASC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
+
+    console.log("[findInBounds] Query:", query);
+    console.log("[findInBounds] Params:", params);
 
     const result = await pool.query(query, params);
     return result.rows;
@@ -267,6 +273,9 @@ class Event {
     query += ` ORDER BY start_time ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
+    console.log("[findInBounds] Query:", query);
+    console.log("[findInBounds] Params:", params);
+
     const result = await pool.query(query, params);
     return result.rows;
   }
@@ -301,6 +310,9 @@ class Event {
 
     query += ` ORDER BY start_time ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
+
+    console.log("[findInBounds] Query:", query);
+    console.log("[findInBounds] Params:", params);
 
     const result = await pool.query(query, params);
     return result.rows;
@@ -340,6 +352,9 @@ class Event {
     query += ` ORDER BY start_time ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
+    console.log("[findInBounds] Query:", query);
+    console.log("[findInBounds] Params:", params);
+
     const result = await pool.query(query, params);
     return result.rows;
   }
@@ -372,6 +387,9 @@ class Event {
     query += ` ORDER BY start_time ASC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
+    console.log("[findInBounds] Query:", query);
+    console.log("[findInBounds] Params:", params);
+
     const result = await pool.query(query, params);
     return result.rows;
   }
@@ -399,6 +417,9 @@ class Event {
 
     query += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
     params.push(limit);
+
+    console.log("[findInBounds] Query:", query);
+    console.log("[findInBounds] Params:", params);
 
     const result = await pool.query(query, params);
     return result.rows;

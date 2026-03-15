@@ -415,6 +415,9 @@ function formatEvent(event) {
   return {
     id: event.id,
     title: event.title,
+    // Include lat/lng at top level for mobile map compatibility
+    latitude: event.latitude ? parseFloat(event.latitude) : null,
+    longitude: event.longitude ? parseFloat(event.longitude) : null,
     description: event.description,
     category: event.category,
     subcategory: event.subcategory,
