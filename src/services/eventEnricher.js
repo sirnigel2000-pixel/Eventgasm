@@ -7,17 +7,25 @@ const { pool } = require('../db');
 
 // Find events missing critical data
 async function findIncompleteEvents(limit = 100) {
+  // Find events that need enrichment - include those without ticket URLs
+  // if they have city but no coords (we can geocode them)
   const result = await pool.query(`
-    SELECT id, source, source_id, ticket_url, title
+    SELECT id, source, source_id, ticket_url, title, city, state, venue_name
     FROM events 
-    WHERE ticket_url IS NOT NULL
-      AND (
+    WHERE (
+      -- Events with ticket URL that need any data
+      (ticket_url IS NOT NULL AND (
         city IS NULL OR city = '' OR city = 'Various' OR city = 'Unknown'
         OR latitude IS NULL
         OR start_time IS NULL
-        OR category IS NULL OR category = 'Community'
-      )
-    ORDER BY created_at DESC
+      ))
+      OR
+      -- Events with city but no coords (can geocode without URL)
+      (city IS NOT NULL AND city NOT IN ('', 'Various', 'Unknown', 'UNKNOWN') AND latitude IS NULL)
+    )
+    ORDER BY 
+      CASE WHEN ticket_url IS NOT NULL THEN 0 ELSE 1 END,
+      created_at DESC
     LIMIT $1
   `, [limit]);
   return result.rows;
@@ -311,10 +319,21 @@ async function enrichEvents(batchSize = 50) {
     }
     
     for (const event of events) {
-      if (!event.ticket_url) continue;
+      let data = {};
       
-      let data = await fetchEventData(event.ticket_url);
-      if (!data) data = {};
+      // If has ticket URL, try to scrape data from it
+      if (event.ticket_url) {
+        data = await fetchEventData(event.ticket_url) || {};
+      }
+      
+      // If no data from URL but event has city, use that
+      if (!data.city && event.city) {
+        data.city = event.city;
+        data.state = event.state;
+      }
+      if (!data.venue_name && event.venue_name) {
+        data.venue_name = event.venue_name;
+      }
       
       // Strategy 1: If we have venue but no coords, try Google Places
       if (data.venue_name && !data.latitude) {
