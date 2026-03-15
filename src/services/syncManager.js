@@ -310,14 +310,14 @@ async function runContinuousEnrichment() {
       let batchUpdated = 0;
       
       // Get batch of incomplete events - large batches for speed
-      const result = await pool.query(`
+      console.log('[Enricher] Running query...'); const result = await pool.query(`
         SELECT id, title, venue_name, ticket_url
         FROM events 
         WHERE city IS NULL 
         LIMIT 500
       `);
       
-      if (result.rows.length === 0) {
+      console.log('[Enricher] Query returned:', result.rows.length); if (result.rows.length === 0) {
         console.log(`[Enricher] ✅ Complete! All events processed. Total updated: ${totalUpdated}`);
         break;
       }
