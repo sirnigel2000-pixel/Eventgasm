@@ -72,15 +72,107 @@ async function fetchEventData(url) {
       return match ? match[1] : null;
     };
     
+    // Try microdata (schema.org)
+    const microdataMatch = html.match(/itemtype="https?:\/\/schema\.org\/Event"[\s\S]*?<\/[^>]+>/i);
+    if (microdataMatch) {
+      const locationMatch = microdataMatch[0].match(/itemprop="location"[^>]*>([^<]*)/i);
+      const dateMatch = microdataMatch[0].match(/itemprop="startDate"[^>]*content="([^"]+)"/i);
+      if (locationMatch || dateMatch) {
+        return {
+          venue_name: locationMatch ? locationMatch[1].trim() : null,
+          start_time: dateMatch ? new Date(dateMatch[1]) : null,
+          title: getMetaContent('og:title'),
+          description: getMetaContent('og:description'),
+          image_url: getMetaContent('og:image'),
+        };
+      }
+    }
+    
+    // Try common HTML patterns
+    const patterns = {
+      // Date patterns
+      date: [
+        /class="[^"]*date[^"]*"[^>]*>([^<]+)</i,
+        /class="[^"]*event-date[^"]*"[^>]*>([^<]+)</i,
+        /datetime="([^"]+)"/i,
+      ],
+      // Location patterns
+      location: [
+        /class="[^"]*venue[^"]*"[^>]*>([^<]+)</i,
+        /class="[^"]*location[^"]*"[^>]*>([^<]+)</i,
+        /class="[^"]*address[^"]*"[^>]*>([^<]+)</i,
+      ],
+      // City patterns
+      city: [
+        /class="[^"]*city[^"]*"[^>]*>([^<]+)</i,
+        /,\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?),\s*([A-Z]{2})\s/,
+      ],
+    };
+    
+    let extractedDate = null;
+    let extractedVenue = null;
+    let extractedCity = null;
+    
+    for (const pattern of patterns.date) {
+      const match = html.match(pattern);
+      if (match) {
+        try {
+          extractedDate = new Date(match[1]);
+          if (!isNaN(extractedDate)) break;
+        } catch (e) {}
+      }
+    }
+    
+    for (const pattern of patterns.location) {
+      const match = html.match(pattern);
+      if (match) {
+        extractedVenue = match[1].trim();
+        break;
+      }
+    }
+    
+    for (const pattern of patterns.city) {
+      const match = html.match(pattern);
+      if (match) {
+        extractedCity = match[1].trim();
+        break;
+      }
+    }
+    
     return {
       title: getMetaContent('og:title'),
       description: getMetaContent('og:description'),
       image_url: getMetaContent('og:image'),
+      start_time: extractedDate,
+      venue_name: extractedVenue,
+      city: extractedCity,
     };
     
   } catch (err) {
     return null;
   }
+}
+
+// Geocode city to get coordinates (free API)
+async function geocodeCity(city, state, country = 'US') {
+  if (!city) return null;
+  try {
+    const query = encodeURIComponent(`${city}, ${state || ''} ${country}`.trim());
+    const response = await axios.get(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+      { 
+        headers: { 'User-Agent': 'Eventgasm/1.0' },
+        timeout: 5000 
+      }
+    );
+    if (response.data && response.data[0]) {
+      return {
+        latitude: parseFloat(response.data[0].lat),
+        longitude: parseFloat(response.data[0].lon),
+      };
+    }
+  } catch (e) {}
+  return null;
 }
 
 // Categorize based on text
@@ -159,6 +251,15 @@ async function enrichEvents(batchSize = 50) {
       
       const data = await fetchEventData(event.external_url);
       if (data && (data.city || data.latitude || data.start_time)) {
+        // If we have city but no coords, try geocoding
+        if (data.city && !data.latitude) {
+          const coords = await geocodeCity(data.city, data.state, data.country);
+          if (coords) {
+            data.latitude = coords.latitude;
+            data.longitude = coords.longitude;
+          }
+        }
+        
         const updated = await updateEvent(event.id, data);
         if (updated) {
           totalEnriched++;
