@@ -288,7 +288,7 @@ export default function MapScreen({ navigation, route }) {
         ) : (
           <Text style={styles.statusText}>
             {viewMode === 'states' 
-              ? `${stateCounts.length} states • Tap to explore`
+              ? `${stateCounts.reduce((sum, s) => sum + s.count, 0).toLocaleString()}+ events across ${stateCounts.length} states`
               : `${events.length} events nearby`
             }
           </Text>
