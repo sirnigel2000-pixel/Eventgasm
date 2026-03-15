@@ -291,12 +291,12 @@ export const components = {
   },
 };
 
-// Swipe thresholds and feedback
+// Swipe thresholds and feedback - tuned for snappy feel
 export const swipe = {
-  threshold: 120,           // Min distance to trigger action
-  velocityThreshold: 800,   // Velocity to trigger regardless of distance
-  rotationAngle: 8,         // Max rotation in degrees
-  overlayOpacity: 0.8,      // Max overlay opacity when swiping
+  threshold: 80,            // Reduced for easier swiping
+  velocityThreshold: 500,   // Lower velocity threshold
+  rotationAngle: 12,        // More dramatic rotation
+  overlayOpacity: 0.9,      // More visible overlay feedback
 };
 
 export default {

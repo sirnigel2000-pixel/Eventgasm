@@ -11,6 +11,48 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
+// Helper: Add variety to event list - mix categories, shuffle within distance bands
+function addVariety(events) {
+  if (events.length < 10) return events;
+  
+  // Group by category
+  const byCategory = {};
+  events.forEach(e => {
+    const cat = e.category || 'Other';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(e);
+  });
+  
+  // Interleave categories for variety
+  const result = [];
+  const categories = Object.keys(byCategory);
+  let added = true;
+  let index = 0;
+  
+  while (added && result.length < events.length) {
+    added = false;
+    for (const cat of categories) {
+      if (byCategory[cat].length > index) {
+        result.push(byCategory[cat][index]);
+        added = true;
+      }
+    }
+    index++;
+  }
+  
+  // Add some randomization to top 20 (keeps it fresh on reload)
+  const top = result.slice(0, 20);
+  const rest = result.slice(20);
+  
+  // Fisher-Yates shuffle on top section
+  for (let i = top.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [top[i], top[j]] = [top[j], top[i]];
+  }
+  
+  return [...top, ...rest];
+}
+
 // Helper: Group events by title + venue to consolidate multiple showtimes
 function groupEventsByShowtime(events) {
   const grouped = new Map();
@@ -109,6 +151,9 @@ router.get('/recommended', async (req, res) => {
 
     // Filter out events without images (swipe needs visual appeal)
     events = events.filter(e => e.image_url);
+    
+    // Add variety: shuffle within distance bands, mix categories
+    events = addVariety(events);
     
     // Limit results
     events = events.slice(0, parseInt(limit));

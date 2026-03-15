@@ -23,8 +23,10 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
   interpolate,
   runOnJS,
+  Easing,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
@@ -89,20 +91,22 @@ const SwipeCard = ({
       }
 
       if (direction) {
-        // Animate off screen
-        const exitX = direction === 'right' ? SCREEN_WIDTH * 1.5 : 
-                      direction === 'left' ? -SCREEN_WIDTH * 1.5 : 0;
-        const exitY = direction === 'down' ? SCREEN_HEIGHT : 
-                      direction === 'up' ? -SCREEN_HEIGHT : 0;
+        // Fast exit animation
+        const exitX = direction === 'right' ? SCREEN_WIDTH * 1.2 : 
+                      direction === 'left' ? -SCREEN_WIDTH * 1.2 : 0;
+        const exitY = direction === 'down' ? SCREEN_HEIGHT * 0.8 : 
+                      direction === 'up' ? -SCREEN_HEIGHT * 0.8 : 0;
 
-        translateX.value = withSpring(exitX, { damping: 20, stiffness: 100 });
-        translateY.value = withSpring(exitY, { damping: 20, stiffness: 100 }, () => {
+        const fastTiming = { duration: 200, easing: Easing.out(Easing.quad) };
+        translateX.value = withTiming(exitX, fastTiming);
+        translateY.value = withTiming(exitY, fastTiming, () => {
           runOnJS(handleSwipeComplete)(direction);
         });
       } else {
-        // Snap back
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
+        // Snappy snap back
+        const snapConfig = { damping: 15, stiffness: 400 };
+        translateX.value = withSpring(0, snapConfig);
+        translateY.value = withSpring(0, snapConfig);
       }
     });
 
