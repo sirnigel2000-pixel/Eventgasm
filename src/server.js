@@ -9,10 +9,11 @@ const Event = require('./models/Event');
 const eventsRouter = require('./routes/events');
 const adminRouter = require('./routes/admin');
 const usersRouter = require('./routes/users');
-const socialRouter = require('./routes/social');
-const messagesRouter = require('./routes/messages');
-const squadsRouter = require('./routes/squads');
-const activityRouter = require('./routes/activity');
+// Social features disabled until sequelize is properly configured
+// const socialRouter = require('./routes/social');
+// const messagesRouter = require('./routes/messages');
+// const squadsRouter = require('./routes/squads');
+// const activityRouter = require('./routes/activity');
 const shareRouter = require('./routes/share');
 const syncManager = require('./services/syncManager');
 
@@ -31,10 +32,11 @@ app.use(express.static(path.join(__dirname, '../public')));
 // API Routes
 app.use('/api/events', eventsRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/social', socialRouter);
-app.use('/api/messages', messagesRouter);
-app.use('/api/squads', squadsRouter);
-app.use('/api/activity', activityRouter);
+// Social features disabled until sequelize is properly configured
+// app.use('/api/social', socialRouter);
+// app.use('/api/messages', messagesRouter);
+// app.use('/api/squads', squadsRouter);
+// app.use('/api/activity', activityRouter);
 app.use('/share', shareRouter);
 app.use('/admin', adminRouter);
 
