@@ -536,6 +536,21 @@ router.post('/enrich/titles', authMiddleware, async (req, res) => {
   }
 });
 
+// Fix garbage event names (deposit, TBD, etc.)
+router.post('/fix-names', authMiddleware, async (req, res) => {
+  const { limit = 500 } = req.query;
+  
+  res.json({ message: 'Name fixer started', limit });
+  
+  try {
+    const { fixEventNames } = require('../services/eventNameFixer');
+    const result = await fixEventNames(parseInt(limit));
+    console.log('[Admin] Name fix complete:', result);
+  } catch (e) {
+    console.error('[Admin] Name fix error:', e.message);
+  }
+});
+
 // Generate descriptions for events missing them
 router.post('/fill-descriptions', authMiddleware, async (req, res) => {
   const { limit = 1000 } = req.query;
