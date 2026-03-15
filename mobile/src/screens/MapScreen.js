@@ -1,88 +1,188 @@
-import React, { useState, useEffect, useRef } from 'react';
+/**
+ * MapScreen - Dynamic event map with bounding box queries
+ * 
+ * Features:
+ * - Fetches events based on visible map region
+ * - Debounced region change handler
+ * - Category color-coded markers
+ * - Filter support
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity,
+  Pressable,
   Dimensions,
   ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Callout } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { fetchEvents } from '../services/api';
-import { formatEventDate } from '../utils/formatters';
+import * as Haptics from 'expo-haptics';
+import api from '../services/api';
+import { colors, typography, borderRadius, spacing, shadows } from '../theme';
+import { format } from 'date-fns';
 
 const { width, height } = Dimensions.get('window');
 
-export default function MapScreen({ navigation }) {
+const CATEGORY_COLORS = {
+  'Music': '#e91e63',
+  'Concert': '#e91e63',
+  'Sports': '#34C759',
+  'Arts & Theatre': '#9c27b0',
+  'Arts': '#9c27b0',
+  'Theater': '#9c27b0',
+  'Comedy': '#FF9500',
+  'Food & Drink': '#795548',
+  'Food': '#795548',
+  'Family': '#007AFF',
+  'Festival': '#FF3B30',
+  'Festivals': '#FF3B30',
+  'Community': '#5856D6',
+  'default': colors.primary,
+};
+
+export default function MapScreen({ navigation, route }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
   const [region, setRegion] = useState({
-    latitude: 28.5383,  // Default to Orlando
-    longitude: -81.3792,
-    latitudeDelta: 0.5,
-    longitudeDelta: 0.5,
+    latitude: 39.8283,  // Center of US
+    longitude: -98.5795,
+    latitudeDelta: 30,
+    longitudeDelta: 30,
   });
+  const [filters, setFilters] = useState({
+    category: route?.params?.category || null,
+    startDate: route?.params?.startDate || null,
+    endDate: route?.params?.endDate || null,
+  });
+  
   const mapRef = useRef(null);
+  const debounceTimer = useRef(null);
 
   useEffect(() => {
-    loadInitialData();
+    loadInitialLocation();
   }, []);
 
-  const loadInitialData = async () => {
+  const loadInitialLocation = async () => {
     try {
-      // Try to get user location
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
-        setRegion({
+        const userRegion = {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
-          latitudeDelta: 0.3,
-          longitudeDelta: 0.3,
-        });
-        
-        // Fetch events near user
-        const data = await fetchEvents({
-          lat: location.coords.latitude,
-          lng: location.coords.longitude,
-          radius: 50,
-          limit: 100,
-        });
-        setEvents(data.events?.filter(e => e.venue?.coordinates) || []);
+          latitudeDelta: 0.5,
+          longitudeDelta: 0.5,
+        };
+        setRegion(userRegion);
+        fetchEventsInRegion(userRegion);
       } else {
-        // Fetch default events
-        const data = await fetchEvents({ limit: 100 });
-        setEvents(data.events?.filter(e => e.venue?.coordinates) || []);
+        // Use default US view
+        fetchEventsInRegion(region);
       }
     } catch (error) {
-      console.error('Error loading map data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error getting location:', error);
+      fetchEventsInRegion(region);
     }
   };
 
+  const fetchEventsInRegion = useCallback(async (mapRegion) => {
+    setFetching(true);
+    try {
+      // Calculate bounding box from region
+      const minLat = mapRegion.latitude - mapRegion.latitudeDelta / 2;
+      const maxLat = mapRegion.latitude + mapRegion.latitudeDelta / 2;
+      const minLng = mapRegion.longitude - mapRegion.longitudeDelta / 2;
+      const maxLng = mapRegion.longitude + mapRegion.longitudeDelta / 2;
+
+      const params = {
+        min_lat: minLat.toFixed(4),
+        max_lat: maxLat.toFixed(4),
+        min_lng: minLng.toFixed(4),
+        max_lng: maxLng.toFixed(4),
+        limit: 500,
+      };
+
+      if (filters.category) params.category = filters.category;
+      if (filters.startDate) params.start_date = filters.startDate;
+      if (filters.endDate) params.end_date = filters.endDate;
+
+      const response = await api.get('/events', { params });
+      
+      if (response.data.success) {
+        // Filter events that have valid coordinates
+        const eventsWithCoords = (response.data.events || []).filter(
+          e => e.latitude && e.longitude
+        );
+        setEvents(eventsWithCoords);
+      }
+    } catch (error) {
+      console.error('Error fetching map events:', error);
+    } finally {
+      setLoading(false);
+      setFetching(false);
+    }
+  }, [filters]);
+
+  // Debounced region change handler
+  const handleRegionChangeComplete = useCallback((newRegion) => {
+    setRegion(newRegion);
+    
+    // Clear existing timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    
+    // Set new debounced fetch
+    debounceTimer.current = setTimeout(() => {
+      fetchEventsInRegion(newRegion);
+    }, 500); // 500ms debounce
+  }, [fetchEventsInRegion]);
+
   const handleMarkerPress = (event) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate('EventDetail', { event });
   };
 
   const getCategoryColor = (category) => {
-    const colors = {
-      'Music': '#e91e63',
-      'Sports': '#4caf50',
-      'Arts & Theatre': '#9c27b0',
-      'Comedy': '#ff9800',
-      'Food & Drink': '#795548',
-      'Family': '#2196f3',
-    };
-    return colors[category] || '#667eea';
+    return CATEGORY_COLORS[category] || CATEGORY_COLORS.default;
+  };
+
+  const formatEventDate = (dateString) => {
+    try {
+      return format(new Date(dateString), 'MMM d, h:mm a');
+    } catch {
+      return '';
+    }
+  };
+
+  const goToUserLocation = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const location = await Location.getCurrentPositionAsync({});
+      const userRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.3,
+        longitudeDelta: 0.3,
+      };
+      mapRef.current?.animateToRegion(userRegion, 500);
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#667eea" />
-        <Text style={styles.loadingText}>Loading events map...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading map...</Text>
       </View>
     );
   }
@@ -92,17 +192,18 @@ export default function MapScreen({ navigation }) {
       <MapView
         ref={mapRef}
         style={styles.map}
-        region={region}
-        onRegionChangeComplete={setRegion}
+        initialRegion={region}
+        onRegionChangeComplete={handleRegionChangeComplete}
         showsUserLocation
-        showsMyLocationButton
+        showsCompass={false}
+        rotateEnabled={false}
       >
         {events.map((event) => (
           <Marker
             key={event.id}
             coordinate={{
-              latitude: event.venue.coordinates.lat,
-              longitude: event.venue.coordinates.lng,
+              latitude: parseFloat(event.latitude),
+              longitude: parseFloat(event.longitude),
             }}
             pinColor={getCategoryColor(event.category)}
             onCalloutPress={() => handleMarkerPress(event)}
@@ -113,12 +214,14 @@ export default function MapScreen({ navigation }) {
                   {event.title}
                 </Text>
                 <Text style={styles.calloutDate}>
-                  {formatEventDate(event.timing?.start)}
+                  {formatEventDate(event.start_time)}
                 </Text>
-                <Text style={styles.calloutVenue} numberOfLines={1}>
-                  📍 {event.venue?.name}
-                </Text>
-                {event.isFree && (
+                {event.venue_name && (
+                  <Text style={styles.calloutVenue} numberOfLines={1}>
+                    📍 {event.venue_name}
+                  </Text>
+                )}
+                {event.is_free && (
                   <Text style={styles.calloutFree}>FREE</Text>
                 )}
                 <Text style={styles.calloutTap}>Tap for details →</Text>
@@ -128,29 +231,42 @@ export default function MapScreen({ navigation }) {
         ))}
       </MapView>
 
-      {/* Back Button */}
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.backText}>←</Text>
-      </TouchableOpacity>
+      {/* Header */}
+      <SafeAreaView style={styles.header} edges={['top']}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
 
-      {/* Event Count */}
-      <View style={styles.countBadge}>
-        <Text style={styles.countText}>{events.length} events nearby</Text>
-      </View>
+        <View style={styles.countBadge}>
+          {fetching ? (
+            <ActivityIndicator size="small" color={colors.textInverse} />
+          ) : (
+            <Text style={styles.countText}>
+              {events.length} {events.length === 500 ? '+' : ''} events
+            </Text>
+          )}
+        </View>
+
+        <TouchableOpacity 
+          style={styles.locationButton}
+          onPress={goToUserLocation}
+        >
+          <Ionicons name="locate" size={22} color={colors.primary} />
+        </TouchableOpacity>
+      </SafeAreaView>
 
       {/* Legend */}
       <View style={styles.legend}>
-        <Text style={styles.legendTitle}>Categories</Text>
         <View style={styles.legendItems}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#e91e63' }]} />
             <Text style={styles.legendText}>Music</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#4caf50' }]} />
+            <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
             <Text style={styles.legendText}>Sports</Text>
           </View>
           <View style={styles.legendItem}>
@@ -158,11 +274,20 @@ export default function MapScreen({ navigation }) {
             <Text style={styles.legendText}>Arts</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#667eea' }]} />
-            <Text style={styles.legendText}>Other</Text>
+            <View style={[styles.legendDot, { backgroundColor: '#FF3B30' }]} />
+            <Text style={styles.legendText}>Festival</Text>
           </View>
         </View>
       </View>
+
+      {/* Zoom hint when zoomed out */}
+      {region.latitudeDelta > 10 && events.length >= 500 && (
+        <View style={styles.zoomHint}>
+          <Text style={styles.zoomHintText}>
+            Zoom in to see more events
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -170,114 +295,105 @@ export default function MapScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
+    ...typography.subheadline,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
   },
   map: {
-    width: width,
-    height: height,
+    ...StyleSheet.absoluteFillObject,
+  },
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
   backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 16,
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  backText: {
-    fontSize: 24,
-    color: '#333',
+    ...shadows.md,
   },
   countBadge: {
-    position: 'absolute',
-    top: 50,
-    right: 16,
-    backgroundColor: '#667eea',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    minWidth: 100,
+    alignItems: 'center',
+    ...shadows.md,
   },
   countText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.subheadlineBold,
+    color: colors.textInverse,
+  },
+  locationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.md,
   },
   callout: {
     width: 220,
   },
   calloutContent: {
-    padding: 8,
+    padding: spacing.sm,
   },
   calloutTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 4,
+    ...typography.headline,
+    marginBottom: spacing.xs,
   },
   calloutDate: {
-    fontSize: 13,
-    color: '#667eea',
+    ...typography.subheadline,
+    color: colors.info,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   calloutVenue: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
+    ...typography.caption1,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
   },
   calloutFree: {
-    fontSize: 12,
+    ...typography.caption1,
     fontWeight: '700',
-    color: '#4caf50',
-    marginBottom: 4,
+    color: colors.swipeGoing,
+    marginBottom: spacing.xs,
   },
   calloutTap: {
-    fontSize: 11,
-    color: '#999',
+    ...typography.caption2,
+    color: colors.textTertiary,
     fontStyle: 'italic',
   },
   legend: {
     position: 'absolute',
     bottom: 40,
-    left: 16,
-    right: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  legendTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    ...shadows.sm,
   },
   legendItems: {
     flexDirection: 'row',
@@ -291,10 +407,23 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   legendText: {
-    fontSize: 11,
-    color: '#666',
+    ...typography.caption1,
+    color: colors.textSecondary,
+  },
+  zoomHint: {
+    position: 'absolute',
+    bottom: 110,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+  },
+  zoomHintText: {
+    ...typography.caption1,
+    color: colors.textInverse,
   },
 });
