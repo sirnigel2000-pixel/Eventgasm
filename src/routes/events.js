@@ -1,8 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const { Pool } = require('pg');
 const Event = require('../models/Event');
 const stubhub = require('../services/stubhub');
 const vividseats = require('../services/vividseats');
+
+// Database connection for direct queries
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
 // Helper: Group events by title + venue to consolidate multiple showtimes
 function groupEventsByShowtime(events) {
