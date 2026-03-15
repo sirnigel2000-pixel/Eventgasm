@@ -34,7 +34,7 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "name": "Eventgasm",
       "shortName": "Eventgasm",
       "description": "Discover events near you",
