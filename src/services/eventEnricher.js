@@ -8,9 +8,9 @@ const { pool } = require('../db');
 // Find events missing critical data
 async function findIncompleteEvents(limit = 100) {
   const result = await pool.query(`
-    SELECT id, source, source_id, external_url, title
+    SELECT id, source, source_id, ticket_url, title
     FROM events 
-    WHERE external_url IS NOT NULL
+    WHERE ticket_url IS NOT NULL
       AND (
         city IS NULL OR city = '' OR city = 'Various' OR city = 'Unknown'
         OR latitude IS NULL
@@ -311,9 +311,9 @@ async function enrichEvents(batchSize = 50) {
     }
     
     for (const event of events) {
-      if (!event.external_url) continue;
+      if (!event.ticket_url) continue;
       
-      let data = await fetchEventData(event.external_url);
+      let data = await fetchEventData(event.ticket_url);
       if (!data) data = {};
       
       // Strategy 1: If we have venue but no coords, try Google Places
