@@ -25,10 +25,11 @@ const initTables = async () => {
     `);
     
     // User event interactions table (swipe saves)
+    // NOTE: Removed foreign key to allow interactions before user fully synced
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_event_interactions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL,
         event_id UUID NOT NULL,
         status VARCHAR(50) NOT NULL CHECK (status IN ('going', 'maybe', 'want_to', 'not_interested')),
         created_at TIMESTAMP DEFAULT NOW(),
@@ -37,6 +38,12 @@ const initTables = async () => {
       )
     `);
     
+    // Drop foreign key if it exists (migration)
+    await pool.query(`
+      ALTER TABLE user_event_interactions 
+      DROP CONSTRAINT IF EXISTS user_event_interactions_user_id_fkey
+    `).catch(() => {});
+    
     // Index for faster queries
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_user_interactions_user_status 
@@ -44,16 +51,27 @@ const initTables = async () => {
     `);
     
     // Friends/connections table
+    // NOTE: Removed foreign keys for flexibility
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_friends (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        friend_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL,
+        friend_id UUID NOT NULL,
         status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'blocked')),
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(user_id, friend_id)
       )
     `);
+    
+    // Drop foreign keys if they exist (migration)
+    await pool.query(`
+      ALTER TABLE user_friends 
+      DROP CONSTRAINT IF EXISTS user_friends_user_id_fkey
+    `).catch(() => {});
+    await pool.query(`
+      ALTER TABLE user_friends 
+      DROP CONSTRAINT IF EXISTS user_friends_friend_id_fkey
+    `).catch(() => {});
     
     console.log('Users and interaction tables ready');
   } catch (error) {
