@@ -680,3 +680,33 @@ router.post('/fill-states', authMiddleware, async (req, res) => {
     console.error('[Admin] State fill error:', e.message);
   }
 });
+
+// Create performance indexes
+router.post('/create-indexes', authMiddleware, async (req, res) => {
+  res.json({ message: 'Creating indexes in background...' });
+  
+  try {
+    console.log('[Admin] Creating performance indexes...');
+    
+    const indexes = [
+      'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_state_lat ON events(state, latitude) WHERE state IS NOT NULL AND latitude IS NOT NULL',
+      'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_upcoming_coords ON events(start_time, latitude, longitude) WHERE start_time > NOW() AND latitude IS NOT NULL',
+      'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_free_upcoming ON events(start_time) WHERE is_free = true AND start_time > NOW()',
+      'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_bbox ON events(latitude, longitude) WHERE latitude IS NOT NULL AND longitude IS NOT NULL',
+      'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_source ON events(source)',
+    ];
+    
+    for (const sql of indexes) {
+      try {
+        await pool.query(sql);
+        console.log('[Admin] Created index:', sql.substring(0, 60) + '...');
+      } catch (e) {
+        console.log('[Admin] Index exists or error:', e.message);
+      }
+    }
+    
+    console.log('[Admin] Index creation complete');
+  } catch (e) {
+    console.error('[Admin] Index creation error:', e.message);
+  }
+});
