@@ -11,9 +11,10 @@ const api = axios.create({
 });
 
 // Add auth interceptor to include user_id in requests
+const AUTH_KEY = '@eventgasm_user';
 api.interceptors.request.use(async (config) => {
   try {
-    const userData = await AsyncStorage.getItem('user');
+    const userData = await AsyncStorage.getItem(AUTH_KEY);
     if (userData) {
       const user = JSON.parse(userData);
       // Add user_id to params for GET requests
