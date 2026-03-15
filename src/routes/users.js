@@ -25,7 +25,6 @@ const initTables = async () => {
     `);
     
     // User event interactions table (swipe saves)
-    // NOTE: Removed foreign key to allow interactions before user fully synced
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_event_interactions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -51,7 +50,6 @@ const initTables = async () => {
     `);
     
     // Friends/connections table
-    // NOTE: Removed foreign keys for flexibility
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_friends (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -79,6 +77,10 @@ const initTables = async () => {
   }
 };
 initTables();
+
+// ============================================
+// STATIC ROUTES (must come BEFORE /:id routes!)
+// ============================================
 
 // Sign up - create new user
 router.post('/signup', async (req, res) => {
@@ -145,131 +147,32 @@ router.post('/signin', async (req, res) => {
   }
 });
 
-// Get user profile
-router.get('/:id', async (req, res) => {
+// Search users to add as friends
+router.get('/search', async (req, res) => {
   try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    const { q, user_id } = req.query;
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!q || q.length < 2) {
+      return res.status(400).json({ message: 'Search query must be at least 2 characters' });
     }
     
-    const user = result.rows[0];
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatarUrl: user.avatar_url,
-      favorites: user.favorites || [],
-      preferences: user.preferences || {},
-      createdAt: user.created_at,
-    });
+    const result = await pool.query(`
+      SELECT id, name, email, avatar_url
+      FROM users
+      WHERE (LOWER(name) LIKE $1 OR LOWER(email) LIKE $1)
+        AND id != $2
+      LIMIT 20
+    `, [`%${q.toLowerCase()}%`, user_id || '00000000-0000-0000-0000-000000000000']);
+    
+    res.json({ success: true, users: result.rows });
   } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ message: 'Failed to get user' });
-  }
-});
-
-// Update user profile
-router.patch('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, avatarUrl, preferences } = req.body;
-    
-    const updates = [];
-    const values = [];
-    let paramCount = 1;
-    
-    if (name) {
-      updates.push(`name = $${paramCount++}`);
-      values.push(name);
-    }
-    if (avatarUrl !== undefined) {
-      updates.push(`avatar_url = $${paramCount++}`);
-      values.push(avatarUrl);
-    }
-    if (preferences) {
-      updates.push(`preferences = $${paramCount++}`);
-      values.push(JSON.stringify(preferences));
-    }
-    
-    if (updates.length === 0) {
-      return res.status(400).json({ message: 'No updates provided' });
-    }
-    
-    updates.push(`updated_at = NOW()`);
-    values.push(id);
-    
-    const result = await pool.query(
-      `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
-      values
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    const user = result.rows[0];
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatarUrl: user.avatar_url,
-      favorites: user.favorites || [],
-      preferences: user.preferences || {},
-    });
-  } catch (error) {
-    console.error('Update user error:', error);
-    res.status(500).json({ message: 'Failed to update user' });
-  }
-});
-
-// Get user favorites
-router.get('/:id/favorites', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT favorites FROM users WHERE id = $1', [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    res.json({ favorites: result.rows[0].favorites || [] });
-  } catch (error) {
-    console.error('Get favorites error:', error);
-    res.status(500).json({ message: 'Failed to get favorites' });
-  }
-});
-
-// Update user favorites
-router.put('/:id/favorites', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { favorites } = req.body;
-    
-    if (!Array.isArray(favorites)) {
-      return res.status(400).json({ message: 'Favorites must be an array' });
-    }
-    
-    const result = await pool.query(
-      'UPDATE users SET favorites = $1, updated_at = NOW() WHERE id = $2 RETURNING favorites',
-      [favorites, id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    res.json({ favorites: result.rows[0].favorites });
-  } catch (error) {
-    console.error('Update favorites error:', error);
-    res.status(500).json({ message: 'Failed to update favorites' });
+    console.error('Search users error:', error);
+    res.status(500).json({ message: 'Failed to search users' });
   }
 });
 
 // ============================================
-// EVENT INTERACTIONS (Swipe Saves)
+// INTERACTIONS (static path - before /:id)
 // ============================================
 
 // Save/update an interaction (swipe action)
@@ -415,7 +318,7 @@ router.get('/interactions/event/:event_id/friends', async (req, res) => {
 });
 
 // ============================================
-// FRIENDS
+// FRIENDS (static paths - before /:id)
 // ============================================
 
 // Send friend request
@@ -483,6 +386,133 @@ router.patch('/friends/request/:request_id', async (req, res) => {
   }
 });
 
+// ============================================
+// PARAMETERIZED ROUTES (must come LAST!)
+// ============================================
+
+// Get user profile
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const user = result.rows[0];
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatar_url,
+      favorites: user.favorites || [],
+      preferences: user.preferences || {},
+      createdAt: user.created_at,
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ message: 'Failed to get user' });
+  }
+});
+
+// Update user profile
+router.patch('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, avatarUrl, preferences } = req.body;
+    
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+    
+    if (name) {
+      updates.push(`name = $${paramCount++}`);
+      values.push(name);
+    }
+    if (avatarUrl !== undefined) {
+      updates.push(`avatar_url = $${paramCount++}`);
+      values.push(avatarUrl);
+    }
+    if (preferences) {
+      updates.push(`preferences = $${paramCount++}`);
+      values.push(JSON.stringify(preferences));
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'No updates provided' });
+    }
+    
+    updates.push(`updated_at = NOW()`);
+    values.push(id);
+    
+    const result = await pool.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+      values
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const user = result.rows[0];
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatar_url,
+      favorites: user.favorites || [],
+      preferences: user.preferences || {},
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ message: 'Failed to update user' });
+  }
+});
+
+// Get user favorites
+router.get('/:id/favorites', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT favorites FROM users WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({ favorites: result.rows[0].favorites || [] });
+  } catch (error) {
+    console.error('Get favorites error:', error);
+    res.status(500).json({ message: 'Failed to get favorites' });
+  }
+});
+
+// Update user favorites
+router.put('/:id/favorites', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { favorites } = req.body;
+    
+    if (!Array.isArray(favorites)) {
+      return res.status(400).json({ message: 'Favorites must be an array' });
+    }
+    
+    const result = await pool.query(
+      'UPDATE users SET favorites = $1, updated_at = NOW() WHERE id = $2 RETURNING favorites',
+      [favorites, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({ favorites: result.rows[0].favorites });
+  } catch (error) {
+    console.error('Update favorites error:', error);
+    res.status(500).json({ message: 'Failed to update favorites' });
+  }
+});
+
 // Get user's friends
 router.get('/:id/friends', async (req, res) => {
   try {
@@ -521,30 +551,6 @@ router.get('/:id/friends', async (req, res) => {
   } catch (error) {
     console.error('Get friends error:', error);
     res.status(500).json({ message: 'Failed to get friends' });
-  }
-});
-
-// Search users to add as friends
-router.get('/search', async (req, res) => {
-  try {
-    const { q, user_id } = req.query;
-    
-    if (!q || q.length < 2) {
-      return res.status(400).json({ message: 'Search query must be at least 2 characters' });
-    }
-    
-    const result = await pool.query(`
-      SELECT id, name, email, avatar_url
-      FROM users
-      WHERE (LOWER(name) LIKE $1 OR LOWER(email) LIKE $1)
-        AND id != $2
-      LIMIT 20
-    `, [`%${q.toLowerCase()}%`, user_id || '00000000-0000-0000-0000-000000000000']);
-    
-    res.json({ success: true, users: result.rows });
-  } catch (error) {
-    console.error('Search users error:', error);
-    res.status(500).json({ message: 'Failed to search users' });
   }
 });
 
