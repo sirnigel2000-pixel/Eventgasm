@@ -96,27 +96,102 @@ export default function HomeScreen({ navigation }) {
   const [recommendedEvents, setRecommendedEvents] = useState([]);
   const [userTopCategories, setUserTopCategories] = useState([]);
 
-  // Load free events for the spotlight section
+  // Load free events for the spotlight section (respects current filters)
   const loadFreeEvents = useCallback(async () => {
     try {
-      // Don't filter by state - show free events nationwide
-      const data = await fetchEvents({
+      const params = {
         free: 'true',
         limit: 10,
-      });
+      };
+      
+      // Apply location filter
+      if (locationCoords) {
+        params.lat = locationCoords.lat;
+        params.lng = locationCoords.lng;
+        params.radius = 50;
+      }
+      
+      // Apply date filter
+      if (selectedDateFilter !== 'all') {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (selectedDateFilter === 'today') {
+          params.start_date = today.toISOString();
+          params.end_date = new Date(today.getTime() + 24*60*60*1000).toISOString();
+        } else if (selectedDateFilter === 'weekend') {
+          const dayOfWeek = today.getDay();
+          const saturday = new Date(today.getTime() + ((6 - dayOfWeek) % 7) * 24*60*60*1000);
+          const monday = new Date(saturday.getTime() + 2*24*60*60*1000);
+          params.start_date = saturday.toISOString();
+          params.end_date = monday.toISOString();
+        } else if (selectedDateFilter === 'week') {
+          params.start_date = today.toISOString();
+          params.end_date = new Date(today.getTime() + 7*24*60*60*1000).toISOString();
+        }
+      }
+      
+      const data = await fetchEvents(params);
       setFreeEvents(data.events || []);
     } catch (error) {
       console.error('Failed to load free events:', error);
     }
-  }, []);
+  }, [locationCoords, selectedDateFilter]);
 
   const loadRecommendedEvents = useCallback(async () => {
     try {
-      // Get a broad set of events to filter
-      const data = await fetchEvents({ limit: 50 });
+      const params = { limit: 50 };
+      
+      // Apply location filter
+      if (locationCoords) {
+        params.lat = locationCoords.lat;
+        params.lng = locationCoords.lng;
+        params.radius = 50;
+      }
+      
+      // Apply category filter from vibe
+      if (selectedVibe !== 'all' && selectedVibe !== 'free') {
+        const vibeToCategory = {
+          'music': 'Music',
+          'food': 'Food & Drink',
+          'cultural': 'Cultural',
+          'festivals': 'Festivals',
+          'sports': 'Sports',
+          'arts': 'Arts & Theatre',
+          'comedy': 'Comedy',
+          'family': 'Family & Kids',
+          'community': null, // handled by source
+        };
+        if (vibeToCategory[selectedVibe]) {
+          params.category = vibeToCategory[selectedVibe];
+        }
+        if (selectedVibe === 'community') {
+          params.source = 'allevents';
+        }
+      }
+      
+      // Apply date filter
+      if (selectedDateFilter !== 'all') {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (selectedDateFilter === 'today') {
+          params.start_date = today.toISOString();
+          params.end_date = new Date(today.getTime() + 24*60*60*1000).toISOString();
+        } else if (selectedDateFilter === 'weekend') {
+          const dayOfWeek = today.getDay();
+          const saturday = new Date(today.getTime() + ((6 - dayOfWeek) % 7) * 24*60*60*1000);
+          const monday = new Date(saturday.getTime() + 2*24*60*60*1000);
+          params.start_date = saturday.toISOString();
+          params.end_date = monday.toISOString();
+        } else if (selectedDateFilter === 'week') {
+          params.start_date = today.toISOString();
+          params.end_date = new Date(today.getTime() + 7*24*60*60*1000).toISOString();
+        }
+      }
+      
+      const data = await fetchEvents(params);
       const allEvents = data.events || [];
       
-      // Get personalized recommendations
+      // Get personalized recommendations from filtered results
       const recommended = await getRecommendedEvents(allEvents, 8);
       setRecommendedEvents(recommended);
       
@@ -126,7 +201,7 @@ export default function HomeScreen({ navigation }) {
     } catch (error) {
       console.error('Failed to load recommendations:', error);
     }
-  }, []);
+  }, [locationCoords, selectedVibe, selectedDateFilter]);
 
   const loadEvents = useCallback(async (reset = false) => {
     try {
