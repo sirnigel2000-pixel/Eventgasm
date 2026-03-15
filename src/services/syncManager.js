@@ -56,6 +56,7 @@ let cityDataScraper;
 let festivalScraper;
 let theaterScraper;
 let concertScraper;
+let festivalnetScraper;
 
 try {
   craigslist = require('./craigslist');
@@ -72,6 +73,7 @@ try {
 try {
   theaterScraper = require('./theaterScraper');
   concertScraper = require('./concertScraper');
+  festivalnetScraper = require('./festivalnetScraper');
 } catch (e) {
   console.log('[SyncManager] Theater Scraper module not available');
 }
