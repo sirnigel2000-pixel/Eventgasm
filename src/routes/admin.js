@@ -889,3 +889,56 @@ router.get('/description-stats', authMiddleware, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// GET /admin/test-google-places - Test Google Places API
+router.get('/test-google-places', authMiddleware, async (req, res) => {
+  const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+  
+  if (!GOOGLE_API_KEY) {
+    return res.json({ error: 'GOOGLE_MAPS_API_KEY not set', keyPresent: false });
+  }
+  
+  try {
+    const axios = require('axios');
+    const testVenue = req.query.venue || 'Madison Square Garden';
+    const testCity = req.query.city || 'New York';
+    
+    const query = encodeURIComponent(`${testVenue} ${testCity}`);
+    const searchResp = await axios.get(
+      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${query}&key=${GOOGLE_API_KEY}`,
+      { timeout: 10000 }
+    );
+    
+    const place = searchResp.data.results?.[0];
+    const photoRef = place?.photos?.[0]?.photo_reference;
+    
+    res.json({
+      keyPresent: true,
+      keyPreview: GOOGLE_API_KEY.substring(0, 8) + '...',
+      apiStatus: searchResp.data.status,
+      placeFound: !!place,
+      placeName: place?.name,
+      hasPhotos: (place?.photos?.length || 0) > 0,
+      photoUrl: photoRef ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photoRef}&key=${GOOGLE_API_KEY}` : null
+    });
+  } catch (e) {
+    res.json({ error: e.message, keyPresent: true });
+  }
+});
+
+// GET /admin/venue-stats - Check how many events have venue_name
+router.get('/venue-stats', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE venue_name IS NOT NULL AND venue_name != '') as with_venue,
+        COUNT(*) FILTER (WHERE venue_name IS NULL OR venue_name = '') as without_venue
+      FROM events
+      WHERE start_time >= NOW() AND (image_url IS NULL OR image_url = '')
+    `);
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
