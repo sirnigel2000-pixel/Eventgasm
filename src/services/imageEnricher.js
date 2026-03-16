@@ -283,8 +283,13 @@ async function enrichImages(limit = 50) {
         'UPDATE events SET image_url = $1, updated_at = NOW() WHERE id = $2',
         [imageResult.url, event.id]
       );
+      await trackImageSource(event.id, imageResult.source, imageResult.accuracy, imageResult.url);
       enriched++;
       if (imageResult.accuracy === 'high') highAccuracy++;
+      
+      // Track in memory for session stats
+      if (!enrichImages.sessionStats) enrichImages.sessionStats = {};
+      enrichImages.sessionStats[imageResult.source] = (enrichImages.sessionStats[imageResult.source] || 0) + 1;
     }
     
     // Rate limiting
@@ -293,6 +298,21 @@ async function enrichImages(limit = 50) {
   
   console.log(`[ImageEnricher] Complete: ${enriched}/${result.rows.length} (${highAccuracy} high accuracy)`);
   return { enriched, total: result.rows.length, highAccuracy };
+}
+
+// Track image source in database
+async function trackImageSource(eventId, source, accuracy, url) {
+  try {
+    // Store in events table (add columns if needed)
+    await pool.query(`
+      UPDATE events 
+      SET image_source = $1, image_accuracy = $2, image_updated_at = NOW()
+      WHERE id = $3
+    `, [source, accuracy, eventId]);
+  } catch (e) {
+    // Columns might not exist yet, just log
+    console.log(`[ImageEnricher] Tracking: ${source} (${accuracy})`);
+  }
 }
 
 // Get stats
@@ -305,7 +325,23 @@ async function getStats() {
     FROM events
     WHERE start_time >= NOW()
   `);
-  return result.rows[0];
+  
+  // Try to get source breakdown
+  let sourceBreakdown = {};
+  try {
+    const sourceResult = await pool.query(`
+      SELECT image_source, image_accuracy, COUNT(*) as count
+      FROM events
+      WHERE image_source IS NOT NULL AND start_time >= NOW()
+      GROUP BY image_source, image_accuracy
+      ORDER BY count DESC
+    `);
+    sourceBreakdown = sourceResult.rows;
+  } catch (e) {
+    // Columns don't exist yet
+  }
+  
+  return { ...result.rows[0], sourceBreakdown };
 }
 
 // Auto-run state

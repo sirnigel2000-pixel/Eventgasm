@@ -810,3 +810,18 @@ router.post('/enrich-images/auto/stop', authMiddleware, async (req, res) => {
   const result = imageEnricher.stopAutoEnrich();
   res.json(result);
 });
+
+// GET /admin/enrich-images/session-stats - What sources were used this session
+router.get('/enrich-images/session-stats', authMiddleware, async (req, res) => {
+  const sessionStats = imageEnricher.enrichImages.sessionStats || {};
+  const total = Object.values(sessionStats).reduce((a, b) => a + b, 0);
+  res.json({ 
+    sessionStats,
+    total,
+    breakdown: Object.entries(sessionStats).map(([source, count]) => ({
+      source,
+      count,
+      percent: total > 0 ? Math.round(count / total * 100) : 0
+    })).sort((a, b) => b.count - a.count)
+  });
+});
