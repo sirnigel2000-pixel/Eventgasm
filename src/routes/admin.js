@@ -710,3 +710,73 @@ router.post('/create-indexes', authMiddleware, async (req, res) => {
     console.error('[Admin] Index creation error:', e.message);
   }
 });
+
+// === IMAGE ENRICHMENT ===
+const { enrichEventImages, getImageStats } = require('../services/imageFinder');
+
+// POST /admin/fill-images - Find and add images to events
+router.post('/fill-images', authMiddleware, async (req, res) => {
+  const limit = parseInt(req.query.limit) || 100;
+  
+  res.json({ 
+    message: 'Image enrichment started',
+    limit
+  });
+  
+  // Run in background
+  enrichEventImages(limit).catch(console.error);
+});
+
+// GET /admin/images/stats - Image coverage stats
+router.get('/images/stats', authMiddleware, async (req, res) => {
+  const stats = await getImageStats();
+  res.json(stats);
+});
+
+// Auto image enricher state
+let imageEnricherRunning = false;
+let imageEnricherInterval = null;
+
+// POST /admin/images/auto - Start auto image enrichment
+router.post('/images/auto', authMiddleware, async (req, res) => {
+  if (imageEnricherRunning) {
+    return res.json({ message: 'Already running', running: true });
+  }
+  
+  const interval = parseInt(req.query.interval) || 30000; // 30 sec default
+  const batchSize = parseInt(req.query.batch) || 25;
+  
+  imageEnricherRunning = true;
+  
+  const runBatch = async () => {
+    if (!imageEnricherRunning) return;
+    try {
+      await enrichEventImages(batchSize);
+    } catch (e) {
+      console.error('[ImageEnricher] Error:', e.message);
+    }
+  };
+  
+  // Start immediately
+  runBatch();
+  
+  // Then continue on interval
+  imageEnricherInterval = setInterval(runBatch, interval);
+  
+  res.json({ 
+    message: 'Image enricher started',
+    running: true,
+    interval,
+    batchSize
+  });
+});
+
+// POST /admin/images/stop - Stop auto image enrichment
+router.post('/images/stop', authMiddleware, async (req, res) => {
+  imageEnricherRunning = false;
+  if (imageEnricherInterval) {
+    clearInterval(imageEnricherInterval);
+    imageEnricherInterval = null;
+  }
+  res.json({ message: 'Image enricher stopped', running: false });
+});
