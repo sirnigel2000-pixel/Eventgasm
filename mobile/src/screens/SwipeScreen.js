@@ -24,7 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BlurView } from 'expo-blur';
+// BlurView removed - not used
 import { LinearGradient } from 'expo-linear-gradient';
 import Haptics from '../utils/haptics';
 import * as Location from 'expo-location';
