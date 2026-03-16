@@ -872,3 +872,20 @@ router.get('/scrapers/status', authMiddleware, async (req, res) => {
 router.get('/scrapers/list', authMiddleware, async (req, res) => {
   res.json({ scrapers: scraperRunner.scrapers });
 });
+
+// GET /admin/description-stats - Description stats
+router.get('/description-stats', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE description IS NOT NULL AND description != '') as with_description,
+        COUNT(*) FILTER (WHERE description IS NULL OR description = '') as without_description
+      FROM events
+      WHERE start_time >= NOW()
+    `);
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
