@@ -780,3 +780,33 @@ router.post('/images/stop', authMiddleware, async (req, res) => {
   }
   res.json({ message: 'Image enricher stopped', running: false });
 });
+
+// === SMART IMAGE ENRICHER ===
+const imageEnricher = require('../services/imageEnricher');
+
+// POST /admin/enrich-images - Smart image enrichment
+router.post('/enrich-images', authMiddleware, async (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  const result = await imageEnricher.enrichImages(limit);
+  res.json(result);
+});
+
+// GET /admin/enrich-images/stats
+router.get('/enrich-images/stats', authMiddleware, async (req, res) => {
+  const stats = await imageEnricher.getStats();
+  res.json(stats);
+});
+
+// POST /admin/enrich-images/auto/start
+router.post('/enrich-images/auto/start', authMiddleware, async (req, res) => {
+  const interval = parseInt(req.query.interval) || 30000;
+  const batch = parseInt(req.query.batch) || 25;
+  const result = imageEnricher.startAutoEnrich(interval, batch);
+  res.json(result);
+});
+
+// POST /admin/enrich-images/auto/stop
+router.post('/enrich-images/auto/stop', authMiddleware, async (req, res) => {
+  const result = imageEnricher.stopAutoEnrich();
+  res.json(result);
+});
