@@ -793,8 +793,30 @@ router.post('/enrich-images', authMiddleware, async (req, res) => {
 
 // GET /admin/enrich-images/stats
 router.get('/enrich-images/stats', authMiddleware, async (req, res) => {
-  const stats = await imageEnricher.getStats();
-  res.json(stats);
+  try {
+    const stats = await imageEnricher.getStats();
+    res.json(stats);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /admin/image-counts - Fast image stats
+router.get('/image-counts', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE image_url IS NOT NULL AND image_url != '') as with_images,
+        COUNT(*) FILTER (WHERE image_url IS NULL OR image_url = '') as missing_images,
+        COUNT(*) FILTER (WHERE image_checked = false OR image_checked IS NULL) as not_checked
+      FROM events
+      WHERE start_time >= NOW()
+    `);
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // POST /admin/enrich-images/auto/start
