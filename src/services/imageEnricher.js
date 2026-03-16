@@ -348,15 +348,67 @@ async function getStats() {
 let autoRunning = false;
 let autoInterval = null;
 
+// Re-check events with low accuracy images
+async function reEnrichLowAccuracy(limit = 50) {
+  console.log(`[ImageEnricher] Re-checking low accuracy images...`);
+  
+  const result = await pool.query(`
+    SELECT id, title, venue_name, city, category, ticket_url, source, image_url
+    FROM events
+    WHERE image_accuracy = 'low'
+      AND start_time >= NOW()
+    ORDER BY start_time ASC
+    LIMIT $1
+  `, [limit]);
+  
+  let upgraded = 0;
+  
+  for (const event of result.rows) {
+    const imageResult = await findBestImage(event);
+    
+    // Only update if we found something better
+    if (imageResult && imageResult.accuracy !== 'low') {
+      await pool.query(
+        'UPDATE events SET image_url = $1, updated_at = NOW() WHERE id = $2',
+        [imageResult.url, event.id]
+      );
+      await trackImageSource(event.id, imageResult.source, imageResult.accuracy, imageResult.url);
+      upgraded++;
+      console.log(`[ImageEnricher] ⬆️ Upgraded: ${event.title?.substring(0, 30)}...`);
+    }
+    
+    await new Promise(r => setTimeout(r, 300));
+  }
+  
+  console.log(`[ImageEnricher] Upgraded ${upgraded}/${result.rows.length} low-accuracy images`);
+  return { upgraded, checked: result.rows.length };
+}
+
 function startAutoEnrich(intervalMs = 30000, batchSize = 25) {
   if (autoRunning) return { message: 'Already running' };
   
   autoRunning = true;
+  let phase = 'missing'; // 'missing' then 'upgrade'
   
   const run = async () => {
     if (!autoRunning) return;
     try {
-      await enrichImages(batchSize);
+      const stats = await getStats();
+      const withoutImage = parseInt(stats.without_image) || 0;
+      
+      if (withoutImage > 0) {
+        // Phase 1: Fill missing images
+        phase = 'missing';
+        await enrichImages(batchSize);
+      } else {
+        // Phase 2: Upgrade low accuracy images
+        phase = 'upgrade';
+        const result = await reEnrichLowAccuracy(batchSize);
+        if (result.checked === 0) {
+          console.log('[ImageEnricher] All done! Stopping auto-enrich.');
+          stopAutoEnrich();
+        }
+      }
     } catch (e) {
       console.error('[ImageEnricher] Error:', e.message);
     }
@@ -365,7 +417,7 @@ function startAutoEnrich(intervalMs = 30000, batchSize = 25) {
   run();
   autoInterval = setInterval(run, intervalMs);
   
-  return { message: 'Started', intervalMs, batchSize };
+  return { message: 'Started', intervalMs, batchSize, phase };
 }
 
 function stopAutoEnrich() {

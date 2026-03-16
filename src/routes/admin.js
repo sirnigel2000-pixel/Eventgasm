@@ -825,3 +825,29 @@ router.get('/enrich-images/session-stats', authMiddleware, async (req, res) => {
     })).sort((a, b) => b.count - a.count)
   });
 });
+
+// === SCRAPER RUNNER ===
+const scraperRunner = require('../services/scraperRunner');
+
+// POST /admin/scrapers/run-all - Run all scrapers
+router.post('/scrapers/run-all', authMiddleware, async (req, res) => {
+  res.json({ message: 'Scraper run started', scrapers: scraperRunner.scrapers });
+  scraperRunner.runAll().catch(console.error);
+});
+
+// POST /admin/scrapers/run/:name - Run specific scraper
+router.post('/scrapers/run/:name', authMiddleware, async (req, res) => {
+  const { name } = req.params;
+  res.json({ message: `Starting ${name}` });
+  scraperRunner.runSpecific([name]).catch(console.error);
+});
+
+// GET /admin/scrapers/status - Get run status
+router.get('/scrapers/status', authMiddleware, async (req, res) => {
+  res.json(scraperRunner.getStatus());
+});
+
+// GET /admin/scrapers/list - List available scrapers
+router.get('/scrapers/list', authMiddleware, async (req, res) => {
+  res.json({ scrapers: scraperRunner.scrapers });
+});
