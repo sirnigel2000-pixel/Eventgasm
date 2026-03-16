@@ -808,8 +808,7 @@ router.get('/image-counts', authMiddleware, async (req, res) => {
       SELECT 
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE image_url IS NOT NULL AND image_url != '') as with_images,
-        COUNT(*) FILTER (WHERE image_url IS NULL OR image_url = '') as missing_images,
-        COUNT(*) FILTER (WHERE image_source IS NULL) as not_checked
+        COUNT(*) FILTER (WHERE image_url IS NULL OR image_url = '') as missing_images
       FROM events
       WHERE start_time >= NOW()
     `);
