@@ -16,6 +16,21 @@ const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
 const recentlyUsedImages = new Set();
 const MAX_RECENT_IMAGES = 5000; // Track last 5000 images
 
+// Google Places call tracking (free tier = $200/month, ~$0.017 per call)
+// Stop before $190 to stay under free limit
+const GOOGLE_COST_PER_CALL = 0.017; // $0.017 per Text Search + Photo
+const GOOGLE_MONTHLY_LIMIT = 190; // Stop at $190 to stay well under $200 free tier
+let googleCallsThisSession = 0;
+
+function isGoogleBudgetExceeded() {
+  const estimatedCost = googleCallsThisSession * GOOGLE_COST_PER_CALL;
+  if (estimatedCost >= GOOGLE_MONTHLY_LIMIT) {
+    console.log(`[ImageEnricher] 🛑 Google Places budget limit reached ($${estimatedCost.toFixed(2)}). Switching to Pexels only.`);
+    return true;
+  }
+  return false;
+}
+
 // Known artist/performer image patterns
 const ARTIST_DOMAINS = [
   'spotify.com', 'last.fm', 'bandsintown.com', 'songkick.com',
@@ -343,12 +358,13 @@ async function findBestImage(event) {
     }
   }
   
-  // 3. Venue photo (good for theater, arena shows)
-  if (venue_name) {
+  // 3. Venue photo (good for theater, arena shows) - only if under budget
+  if (venue_name && !isGoogleBudgetExceeded()) {
     const venueImg = await getVenuePhoto(venue_name, city);
     if (venueImg && !isImageRecentlyUsed(venueImg)) {
       console.log(`[ImageEnricher] ✓ Venue: ${venue_name}`);
       markImageUsed(venueImg);
+      googleCallsThisSession++;
       return { url: venueImg, source: 'google_places', accuracy: 'medium' };
     }
   }
