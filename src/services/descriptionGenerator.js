@@ -71,88 +71,123 @@ function cleanDescription(text) {
     .substring(0, 1000);
 }
 
-// Category-specific templates (fallback only)
-const TEMPLATES = {
-  'Music': [
-    "Experience {title} live! An evening of exceptional music and unforgettable moments at {venue}.",
-    "Don't miss {title} - live music that promises incredible energy and amazing performances.",
-    "Join us for {title}, a must-see musical event bringing the crowd together at {venue}.",
-  ],
-  'Sports': [
-    "Catch all the action at {title}! Experience the thrill of live sports and cheer on your team.",
-    "Game day! Join fans at {title} for live sports action and the energy of the crowd.",
-    "Don't miss {title} - live sports excitement where every play matters.",
-  ],
-  'Comedy': [
-    "Laugh out loud at {title}! An evening of hilarious comedy guaranteed to have you in stitches.",
-    "Get ready to laugh with {title} - professional comedy at its finest.",
-    "Join us for {title}, where the jokes are sharp and the laughs are real.",
-  ],
-  'Theater': [
-    "Experience the magic of {title} on stage. Live theatre that moves and inspires.",
-    "Don't miss {title} - a captivating theatrical performance at {venue}.",
-    "Step into the world of {title}, bringing powerful stories to life through live performance.",
-  ],
-  'Arts': [
-    "Immerse yourself in {title} - a remarkable artistic experience that sparks creativity and conversation.",
-    "Discover {title} at {venue}, showcasing the work of talented artists and creators.",
-    "Experience {title}, where art comes alive and invites you to see the world differently.",
-  ],
-  'Festival': [
-    "Join the celebration at {title}! Music, food, fun, and unforgettable moments for everyone.",
-    "Don't miss {title} - a vibrant festival experience with entertainment and community spirit.",
-    "Be part of {title}, a festival that brings people together for a day to remember.",
-  ],
-  'Food': [
-    "Indulge at {title}! A culinary experience celebrating incredible food, drinks, and flavors.",
-    "Savor the moment at {title} - delicious food and great company in one event.",
-    "Join fellow food lovers at {title} for an unforgettable culinary adventure.",
-  ],
-  'Family': [
-    "Bring the whole family to {title}! A fun-filled event with something for everyone.",
-    "Create memories at {title} - a family-friendly experience packed with entertainment.",
-    "Don't miss {title}, perfect for families looking for fun, laughs, and great times together.",
-  ],
-  'Community': [
-    "Connect with neighbors at {title}! A community event celebrating what brings us together.",
-    "Join your community at {title} - fun, connection, and local spirit all in one place.",
-    "Be part of {title}, where neighbors become friends and community comes alive.",
-  ],
-  'Nightlife': [
-    "The night comes alive at {title}! Dancing, drinks, and an incredible atmosphere await.",
-    "Don't miss {title} - the place to be for an unforgettable night out.",
-    "Experience {title} where great music meets great vibes for a night you won't forget.",
-  ],
-  'default': [
-    "Don't miss {title} at {venue}! An exciting event with entertainment and great moments.",
-    "Join us for {title} - a can't-miss event that promises a great time for all.",
-    "Experience {title}, where memorable moments are made and good times are guaranteed.",
-  ]
-};
+// Extract performer/artist name from event title
+function extractPerformer(title) {
+  if (!title) return null;
+  return title
+    .replace(/\s*(live|tour|concert|show|tickets|presents|featuring|feat\.?|ft\.?|at\s+\w+|:\s*.*)$/i, '')
+    .replace(/\s*[-–—]\s*.*$/, '')
+    .replace(/\([^)]*\)/g, '')
+    .trim()
+    .split(' ').slice(0, 4).join(' ');
+}
 
+// Format a readable date
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+  try {
+    return new Date(dateStr).toLocaleDateString('en-US', { 
+      weekday: 'long', month: 'long', day: 'numeric' 
+    });
+  } catch (e) { return null; }
+}
+
+// Smart template generator - uses all available event data
 function generateTemplate(event) {
-  const key = Object.keys(TEMPLATES).find(k => 
-    event.category?.toLowerCase().includes(k.toLowerCase())
-  ) || 'default';
-  
-  const templates = TEMPLATES[key];
-  const idx = Math.abs(event.id?.charCodeAt(0) || 0) % templates.length;
-  const template = templates[idx];
-  
-  const venue = event.venue_name || 'a great venue';
+  const title = event.title || 'this event';
+  const venue = event.venue_name;
   const city = event.city || '';
   const state = event.state || '';
-  const location = city && state ? `${city}, ${state}` : city || state || '';
-  
-  let desc = template
-    .replace(/{title}/g, event.title || 'this event')
-    .replace(/{venue}/g, venue);
-  
-  if (location && !desc.includes(location)) {
-    desc += ` Taking place in ${location}.`;
+  const location = city && state ? `${city}, ${state}` : city || state || null;
+  const date = formatDate(event.start_time);
+  const performer = extractPerformer(title);
+  const category = (event.category || '').toLowerCase();
+
+  // Build context strings
+  const at = venue ? `at ${venue}` : location ? `in ${location}` : '';
+  const on = date ? `on ${date}` : '';
+  const inCity = location ? `in ${location}` : '';
+  const whoWhere = [venue, location].filter(Boolean).join(', ');
+
+  // Category-specific smart templates
+  if (category.includes('music') || category.includes('concert')) {
+    const options = [
+      `${performer || title} takes the stage ${at}${on ? ' ' + on : ''}. An evening of live music, electric energy, and unforgettable performances${inCity ? ' ' + inCity : ''}.`,
+      `Don't miss ${performer || title} live${at ? ' ' + at : ''}. ${date ? `This ${date.split(',')[0]} night` : 'One night'} of raw music and real moments${inCity ? ' in ' + (city || location) : ''}.`,
+      `${performer || title}${at ? ' performs ' + at : ' performing live'}${on ? ' ' + on : ''}. Get your tickets now${inCity ? ' — ' + (city || location) : ''}.`,
+    ];
+    return options[Math.abs((event.id || '').charCodeAt(0) || 0) % options.length];
   }
-  
-  return desc;
+
+  if (category.includes('sport')) {
+    const options = [
+      `${title}${at ? ' ' + at : ''}${on ? ' ' + on : ''}. Catch every play, every call, every moment live${inCity ? ' in ' + (city || location) : ''}.`,
+      `Game day ${inCity ? 'in ' + (city || location) : ''}${on ? ' — ' + on : ''}. ${title}${venue ? ' at ' + venue : ''}. Be there.`,
+      `Live sports action: ${title}. ${date ? date + ' ' : ''}${whoWhere ? 'At ' + whoWhere + '. ' : ''}Cheer your team on in person.`,
+    ];
+    return options[Math.abs((event.id || '').charCodeAt(0) || 0) % options.length];
+  }
+
+  if (category.includes('comedy')) {
+    const options = [
+      `${performer || title} brings sharp wit and real laughs${at ? ' ' + at : ''}${on ? ' ' + on : ''}. A night of stand-up comedy${inCity ? ' in ' + (city || location) : ''} you won't forget.`,
+      `Laugh-out-loud comedy with ${performer || title}${on ? ' ' + on : ''}${at ? ' ' + at : ''}. ${inCity ? (city || location) + ' — c' : 'C'}ome ready to lose it.`,
+      `${performer || title} is coming${inCity ? ' to ' + (city || location) : ''}${on ? ' ' + on : ''}. ${venue ? 'At ' + venue + '. ' : ''}Expect an hour of unfiltered, unforgettable comedy.`,
+    ];
+    return options[Math.abs((event.id || '').charCodeAt(0) || 0) % options.length];
+  }
+
+  if (category.includes('theater') || category.includes('theatre')) {
+    const options = [
+      `${title} comes to life on stage${at ? ' ' + at : ''}${on ? ' ' + on : ''}. A theatrical experience${inCity ? ' in ' + (city || location) : ''} that moves and inspires.`,
+      `Live theatre${at ? ' ' + at : ''}: ${title}${on ? ', ' + on : ''}. ${inCity ? (city || location) + ' — e' : 'E'}xperience the power of live performance.`,
+    ];
+    return options[Math.abs((event.id || '').charCodeAt(0) || 0) % options.length];
+  }
+
+  if (category.includes('festival')) {
+    const options = [
+      `${title}${on ? ' — ' + on : ''}${at ? ' ' + at : ''}. ${inCity ? (city || location) + '\'s ' : ''}biggest celebration of the season. Music, food, and good people all in one place.`,
+      `${title} returns${inCity ? ' to ' + (city || location) : ''}${on ? ' ' + on : ''}. ${venue ? 'At ' + venue + ' — e' : 'E'}xpect incredible entertainment from start to finish.`,
+    ];
+    return options[Math.abs((event.id || '').charCodeAt(0) || 0) % options.length];
+  }
+
+  if (category.includes('food') || category.includes('drink')) {
+    const options = [
+      `${title}${on ? ' ' + on : ''}${at ? ' ' + at : ''}. Discover incredible flavors, meet local makers, and eat well${inCity ? ' in ' + (city || location) : ''}.`,
+      `A culinary experience${inCity ? ' in ' + (city || location) : ''}: ${title}${on ? ' ' + on : ''}${venue ? ' at ' + venue : ''}. Taste, sip, and enjoy the best the area has to offer.`,
+    ];
+    return options[Math.abs((event.id || '').charCodeAt(0) || 0) % options.length];
+  }
+
+  if (category.includes('nightlife')) {
+    const options = [
+      `${title}${on ? ' — ' + on : ''}${at ? ' ' + at : ''}. The night starts${inCity ? ' in ' + (city || location) : ''} and so does the music. Come ready to dance.`,
+      `${inCity ? (city || location) + ' comes alive' : 'The night comes alive'} at ${title}${on ? ' ' + on : ''}${venue ? ' at ' + venue : ''}. One of those nights.`,
+    ];
+    return options[Math.abs((event.id || '').charCodeAt(0) || 0) % options.length];
+  }
+
+  if (category.includes('family')) {
+    return `${title}${on ? ' ' + on : ''}${at ? ' ' + at : ''}. A fun-filled day for the whole family${inCity ? ' in ' + (city || location) : ''} — activities, entertainment, and memories waiting to be made.`;
+  }
+
+  if (category.includes('community')) {
+    return `${title}${on ? ' ' + on : ''}${at ? ' ' + at : ''}. Come out, meet your neighbors, and be part of what makes ${city || 'this community'} special.`;
+  }
+
+  if (category.includes('art')) {
+    return `${title}${on ? ' ' + on : ''}${at ? ' ' + at : ''}. A chance to see${inCity ? ' ' + (city || location) + '\'s' : ''} creative scene up close — exhibits, artists, and work that makes you think.`;
+  }
+
+  // Smart default
+  const defaults = [
+    `${title}${on ? ' ' + on : ''}${at ? ' ' + at : ''}. ${inCity ? (city || location) + ' — d' : 'D'}on't miss it.`,
+    `${title}${at ? ' ' + at : ''}${on ? ' ' + on : ''}. An event worth showing up for${inCity ? ' in ' + (city || location) : ''}.`,
+    `Join us for ${title}${on ? ' ' + on : ''}${venue ? ' at ' + venue : ''}${inCity ? ' in ' + (city || location) : ''}. A great time guaranteed.`,
+  ];
+  return defaults[Math.abs((event.id || '').charCodeAt(0) || 0) % defaults.length];
 }
 
 // Process a batch of events
