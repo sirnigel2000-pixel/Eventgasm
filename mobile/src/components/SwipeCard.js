@@ -49,6 +49,7 @@ const SwipeCard = ({
   onSwipe,
   onPress,
   isFirst = false,
+  isHot = false,
   friendsGoing = [],
 }) => {
   const translateX = useSharedValue(0);
@@ -228,12 +229,19 @@ const SwipeCard = ({
 
           {/* Content */}
           <View style={styles.content}>
-            {/* Category pill */}
-            {event.category && (
-              <View style={styles.categoryPill}>
-                <Text style={styles.categoryText}>{event.category}</Text>
-              </View>
-            )}
+            {/* Category pill + hot indicator */}
+            <View style={styles.pillRow}>
+              {event.category && (
+                <View style={styles.categoryPill}>
+                  <Text style={styles.categoryText}>{event.category}</Text>
+                </View>
+              )}
+              {isHot && (
+                <View style={styles.hotPill}>
+                  <Text style={styles.hotText}>🔥 Hot</Text>
+                </View>
+              )}
+            </View>
 
             {/* Title */}
             <Text style={styles.title} numberOfLines={2}>
@@ -306,13 +314,17 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingBottom: spacing.xxl,
   },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: spacing.sm,
+  },
   categoryPill: {
-    alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
-    marginBottom: spacing.sm,
   },
   categoryText: {
     ...typography.caption1,
@@ -320,6 +332,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  hotPill: {
+    backgroundColor: 'rgba(255,90,60,0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  hotText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   title: {
     ...typography.title1,

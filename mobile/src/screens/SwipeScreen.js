@@ -1,6 +1,6 @@
 /**
- * SwipeScreen - Sleek event discovery
- * Clean, modern, no gamey nonsense
+ * SwipeScreen - Addictive event discovery
+ * Dopamine hits, not game mechanics
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -12,8 +12,20 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+  withTiming,
+  withDelay,
+  interpolate,
+  runOnJS,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import Haptics from '../utils/haptics';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,15 +54,23 @@ const SwipeScreen = ({ navigation }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [location, setLocation] = useState(null);
   const [filters, setFilters] = useState({ categories: [], maxDistance: 50 });
+  const [lastSwipeDirection, setLastSwipeDirection] = useState(null);
+  const [showMatchGlow, setShowMatchGlow] = useState(false);
   
-  // Simple stats - just for showing your taste, not gamification
+  // Simple stats for personalization
   const [stats, setStats] = useState({
     explored: 0,
     liked: 0,
     topCategory: null,
     categoryLikes: {},
+    sessionSwipes: 0,
   });
 
+  // Animations for that dopamine hit
+  const matchGlowOpacity = useSharedValue(0);
+  const cardStackPulse = useSharedValue(1);
+  const headerPop = useSharedValue(1);
+  
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -141,21 +161,49 @@ const SwipeScreen = ({ navigation }) => {
     }
   }, [filters, events.length, location]);
 
-  // Handle swipe - clean, no points or badges
+  // Handle swipe - satisfying feedback, no cheesy points
   const handleSwipe = useCallback(async (direction, event) => {
     const action = SWIPE_ACTIONS[direction];
     const category = event.category || 'Other';
+    setLastSwipeDirection(direction);
+    
+    // Different haptic patterns for different actions
+    if (direction === 'right') {
+      // Satisfying double-tap for "yes"
+      Haptics.notificationAsync('Success');
+      
+      // Subtle glow effect
+      setShowMatchGlow(true);
+      matchGlowOpacity.value = withSequence(
+        withTiming(0.6, { duration: 100 }),
+        withTiming(0, { duration: 400 })
+      );
+      setTimeout(() => setShowMatchGlow(false), 500);
+      
+    } else if (direction === 'up') {
+      // Soft bump for "maybe"
+      Haptics.impactAsync('Light');
+    } else {
+      // Quick light tap for "nope"
+      Haptics.selectionAsync();
+    }
+    
+    // Card stack "breathes" - subtle anticipation
+    cardStackPulse.value = withSequence(
+      withTiming(0.98, { duration: 50 }),
+      withSpring(1, { damping: 15, stiffness: 200 })
+    );
     
     // Update stats quietly
     const newStats = { ...stats };
     newStats.explored = (stats.explored || 0) + 1;
+    newStats.sessionSwipes = (stats.sessionSwipes || 0) + 1;
     
     if (direction === 'right' || direction === 'up') {
       newStats.liked = (stats.liked || 0) + 1;
       newStats.categoryLikes = { ...stats.categoryLikes };
       newStats.categoryLikes[category] = (newStats.categoryLikes[category] || 0) + 1;
       
-      // Find top category
       const sorted = Object.entries(newStats.categoryLikes).sort((a, b) => b[1] - a[1]);
       newStats.topCategory = sorted[0]?.[0];
     }
@@ -182,11 +230,29 @@ const SwipeScreen = ({ navigation }) => {
   }, [navigation]);
 
   const handleActionButton = (direction) => {
-    Haptics.impactAsync('Medium');
     if (events[currentIndex]) {
       handleSwipe(direction, events[currentIndex]);
     }
   };
+  
+  // Session momentum indicator (subtle, not gamey)
+  const getMomentumText = () => {
+    const s = stats.sessionSwipes || 0;
+    if (s >= 20) return '🔥';
+    if (s >= 10) return '⚡';
+    if (s >= 5) return '✨';
+    return null;
+  };
+
+  // Animated card stack style
+  const cardStackStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardStackPulse.value }],
+  }));
+  
+  // Match glow style
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: matchGlowOpacity.value,
+  }));
 
   const renderCardStack = () => {
     if (loading && events.length === 0) {
@@ -215,13 +281,18 @@ const SwipeScreen = ({ navigation }) => {
     for (let i = 2; i >= 0; i--) {
       const eventIndex = currentIndex + i;
       if (eventIndex < events.length) {
+        const evt = events[eventIndex];
+        // Add some spice - mark trending/hot events
+        const isHot = evt.is_free || (evt.price_min && evt.price_min < 30);
+        
         stackCards.push(
           <SwipeCard
-            key={events[eventIndex].id}
-            event={events[eventIndex]}
+            key={evt.id}
+            event={evt}
             onSwipe={i === 0 ? handleSwipe : undefined}
             onPress={i === 0 ? handleCardPress : undefined}
             isFirst={i === 0}
+            isHot={i === 0 && isHot}
             style={[
               styles.card,
               { zIndex: 3 - i, transform: [{ scale: 1 - i * 0.05 }, { translateY: i * 8 }] }
@@ -231,7 +302,20 @@ const SwipeScreen = ({ navigation }) => {
       }
     }
 
-    return <View style={styles.cardStack}>{stackCards}</View>;
+    return (
+      <Animated.View style={[styles.cardStack, cardStackStyle]}>
+        {/* Success glow behind cards */}
+        {showMatchGlow && (
+          <Animated.View style={[styles.matchGlow, glowStyle]}>
+            <LinearGradient
+              colors={['transparent', 'rgba(52, 199, 89, 0.3)', 'transparent']}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+        )}
+        {stackCards}
+      </Animated.View>
+    );
   };
 
   // Get taste label
@@ -243,20 +327,25 @@ const SwipeScreen = ({ navigation }) => {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Clean minimal header */}
+        {/* Clean header with subtle momentum */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.headerTitle}>Discover</Text>
-            {stats.topCategory && (
-              <View style={styles.tasteBadge}>
-                <Text style={styles.tasteBadgeText}>Into {stats.topCategory}</Text>
-              </View>
+            {getMomentumText() && (
+              <Text style={styles.momentumEmoji}>{getMomentumText()}</Text>
             )}
           </View>
           
-          <Pressable style={styles.filterButton} onPress={() => setShowFilters(true)}>
-            <Ionicons name="options-outline" size={24} color={colors.text} />
-          </Pressable>
+          <View style={styles.headerRight}>
+            {stats.topCategory && (
+              <View style={styles.tasteBadge}>
+                <Text style={styles.tasteBadgeText}>{stats.topCategory}</Text>
+              </View>
+            )}
+            <Pressable style={styles.filterButton} onPress={() => setShowFilters(true)}>
+              <Ionicons name="options-outline" size={22} color={colors.textSecondary} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Cards */}
@@ -293,46 +382,67 @@ const SwipeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#fafafa' },
   safeArea: { flex: 1 },
   
-  // Clean header
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
     color: colors.text,
+    letterSpacing: -0.5,
+  },
+  momentumEmoji: {
+    fontSize: 18,
   },
   tasteBadge: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'rgba(0,0,0,0.06)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
   tasteBadgeText: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   filterButton: {
-    padding: 8,
+    padding: 6,
   },
   
   // Cards
   cardContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   cardStack: { width: SCREEN_WIDTH - 32, height: '88%', position: 'relative' },
   card: { position: 'absolute', width: '100%', height: '100%' },
+  
+  // Match glow effect
+  matchGlow: {
+    position: 'absolute',
+    top: -20,
+    left: -20,
+    right: -20,
+    bottom: -20,
+    borderRadius: 30,
+    zIndex: -1,
+  },
   
   // Loading/Empty
   loadingContainer: { alignItems: 'center', justifyContent: 'center' },
@@ -350,27 +460,40 @@ const styles = StyleSheet.create({
   },
   refreshButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   
-  // Action buttons - minimal, sleek
+  // Action buttons - sleek, satisfying
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingBottom: 24,
-    gap: 24,
+    paddingVertical: 12,
+    paddingBottom: 20,
+    gap: 20,
   },
   actionButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.md,
+    shadowOpacity: 0.12,
   },
-  actionNope: { borderWidth: 2, borderColor: '#FFE5E5' },
-  actionSave: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: '#FFF3E0' },
-  actionLike: { borderWidth: 2, borderColor: '#E8F5E9' },
+  actionNope: { 
+    borderWidth: 2.5, 
+    borderColor: 'rgba(255,59,48,0.15)',
+  },
+  actionSave: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 24, 
+    borderWidth: 2, 
+    borderColor: 'rgba(255,149,0,0.15)',
+  },
+  actionLike: { 
+    borderWidth: 2.5, 
+    borderColor: 'rgba(52,199,89,0.15)',
+  },
 });
 
 export default SwipeScreen;
