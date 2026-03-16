@@ -13,6 +13,7 @@ const { pool } = require('../db');
 const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 const GOOGLE_CSE_ID = process.env.GOOGLE_CSE_ID; // Custom Search Engine ID
 const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
+const PEXELS_KEY = process.env.PEXELS_API_KEY;
 
 // Category to Unsplash search mapping
 const CATEGORY_IMAGES = {
@@ -85,6 +86,28 @@ async function searchGoogleImages(query) {
   return null;
 }
 
+// Search Pexels for images (free, easy setup)
+async function searchPexels(query) {
+  if (!PEXELS_KEY || !query) return null;
+  
+  try {
+    const response = await axios.get(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
+      { 
+        headers: { Authorization: PEXELS_KEY },
+        timeout: 5000 
+      }
+    );
+    
+    if (response.data?.photos?.[0]?.src?.large) {
+      return response.data.photos[0].src.large;
+    }
+  } catch (e) {
+    console.log(`[ImageFinder] Pexels failed: ${e.message}`);
+  }
+  return null;
+}
+
 // Get a category-appropriate image from Unsplash
 async function getUnsplashImage(category) {
   if (!UNSPLASH_KEY) return null;
@@ -109,40 +132,68 @@ async function getUnsplashImage(category) {
   return null;
 }
 
+// Get category image from Pexels (fallback)
+async function getPexelsCategoryImage(category) {
+  const searchTerm = CATEGORY_IMAGES[category] || 'event crowd celebration';
+  return searchPexels(searchTerm);
+}
+
 // Main function - find best image for an event
 async function findEventImage(event) {
   const { title, venue_name, city, category } = event;
   
-  // 1. Try venue photo (most reliable)
+  // 1. Try venue photo from Google Places (most reliable, uses existing API key)
   if (venue_name) {
     const venuePhoto = await getVenuePhoto(venue_name, city);
     if (venuePhoto) {
-      console.log(`[ImageFinder] Found venue photo for: ${venue_name}`);
+      console.log(`[ImageFinder] ✓ Venue photo: ${venue_name}`);
       return venuePhoto;
     }
   }
   
-  // 2. Try Google Image search for the event/artist
+  // 2. Clean title for searches
+  let cleanTitle = '';
   if (title) {
-    // Clean title - remove dates, times, ticket info
-    const cleanTitle = title
+    cleanTitle = title
       .replace(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g, '')
       .replace(/\d{1,2}:\d{2}\s*(am|pm)?/gi, '')
-      .replace(/tickets?|presale|vip/gi, '')
+      .replace(/tickets?|presale|vip|general admission/gi, '')
+      .replace(/\(.*?\)/g, '')
       .trim();
-    
+  }
+  
+  // 3. Try Google Custom Search (if configured)
+  if (cleanTitle && GOOGLE_CSE_ID) {
     const searchQuery = `${cleanTitle} ${category || 'event'}`;
     const googleImage = await searchGoogleImages(searchQuery);
     if (googleImage) {
-      console.log(`[ImageFinder] Found Google image for: ${cleanTitle}`);
+      console.log(`[ImageFinder] ✓ Google image: ${cleanTitle.substring(0, 30)}...`);
       return googleImage;
     }
   }
   
-  // 3. Fallback to Unsplash category image
+  // 4. Try Pexels search for artist/event name (simple API key)
+  if (cleanTitle && PEXELS_KEY) {
+    const pexelsImage = await searchPexels(`${cleanTitle} ${category || ''}`);
+    if (pexelsImage) {
+      console.log(`[ImageFinder] ✓ Pexels: ${cleanTitle.substring(0, 30)}...`);
+      return pexelsImage;
+    }
+  }
+  
+  // 5. Fallback to category image from Pexels
+  if (PEXELS_KEY) {
+    const pexelsCat = await getPexelsCategoryImage(category);
+    if (pexelsCat) {
+      console.log(`[ImageFinder] ✓ Pexels category: ${category}`);
+      return pexelsCat;
+    }
+  }
+  
+  // 6. Last resort: Unsplash
   const unsplashImage = await getUnsplashImage(category);
   if (unsplashImage) {
-    console.log(`[ImageFinder] Using Unsplash fallback for category: ${category}`);
+    console.log(`[ImageFinder] ✓ Unsplash fallback: ${category}`);
     return unsplashImage;
   }
   
