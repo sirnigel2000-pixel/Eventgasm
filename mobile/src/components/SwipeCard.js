@@ -229,16 +229,33 @@ const SwipeCard = ({
 
           {/* Content */}
           <View style={styles.content}>
-            {/* Category pill + hot indicator */}
+            {/* Category pill + social proof */}
             <View style={styles.pillRow}>
               {event.category && (
                 <View style={styles.categoryPill}>
                   <Text style={styles.categoryText}>{event.category}</Text>
                 </View>
               )}
-              {isHot && (
-                <View style={styles.hotPill}>
-                  <Text style={styles.hotText}>🔥 Hot</Text>
+              {/* Social proof - interest or trending */}
+              {event.interestCount > 50 ? (
+                <View style={styles.trendingPill}>
+                  <Text style={styles.trendingText}>🔥 Trending</Text>
+                </View>
+              ) : event.interestCount > 0 ? (
+                <View style={styles.socialPill}>
+                  <Text style={styles.socialText}>
+                    {event.interestCount}+ interested
+                  </Text>
+                </View>
+              ) : null}
+              {friendsGoing.length > 0 && (
+                <View style={styles.friendsPill}>
+                  <Text style={styles.friendsText}>
+                    {friendsGoing.length === 1 
+                      ? '1 friend going'
+                      : `${friendsGoing.length} friends going`
+                    }
+                  </Text>
                 </View>
               )}
             </View>
@@ -344,6 +361,41 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  socialPill: {
+    backgroundColor: 'rgba(99,102,241,0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  socialText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  trendingPill: {
+    backgroundColor: 'rgba(255,90,60,0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  trendingText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  friendsPill: {
+    backgroundColor: 'rgba(52,199,89,0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  friendsText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '600',
   },
   title: {
     ...typography.title1,

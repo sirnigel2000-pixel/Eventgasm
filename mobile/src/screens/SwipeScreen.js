@@ -46,6 +46,41 @@ const SWIPE_ACTIONS = {
 
 const STATS_KEY = '@eventgasm_discovery';
 
+// Generate realistic interest counts based on event characteristics
+const generateInterestCount = (event) => {
+  // Hash the event id for consistent "random" numbers
+  const hash = (event.id || '').toString().split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  
+  // Base interest on event type
+  let base = 0;
+  const title = (event.title || '').toLowerCase();
+  const category = (event.category || '').toLowerCase();
+  
+  // Popular categories get more interest
+  if (category.includes('music') || category.includes('concert')) base = 40;
+  else if (category.includes('sports')) base = 60;
+  else if (category.includes('comedy')) base = 25;
+  else if (category.includes('festival')) base = 80;
+  else if (category.includes('theater') || category.includes('broadway')) base = 30;
+  else base = 15;
+  
+  // Known artists/teams get boost
+  const bigNames = ['taylor', 'beyonce', 'drake', 'kendrick', 'weeknd', 'lakers', 'yankees', 'chiefs', 'swift'];
+  if (bigNames.some(n => title.includes(n))) base += 200;
+  
+  // Free events get boost
+  if (event.is_free) base += 20;
+  
+  // Add pseudo-random variance using hash
+  const variance = (hash % 40) - 20;
+  const count = Math.max(0, base + variance);
+  
+  // 30% chance of no visible count (variety)
+  if (hash % 10 < 3) return 0;
+  
+  return count;
+};
+
 const SwipeScreen = ({ navigation }) => {
   const { user, isSignedIn: isAuthenticated } = useAuth();
   const [events, setEvents] = useState([]);
@@ -147,6 +182,13 @@ const SwipeScreen = ({ navigation }) => {
           return true;
         });
         
+        // Add social proof - interest counts
+        // (Simulated for now - will be real when we track interactions)
+        newEvents = newEvents.map(e => ({
+          ...e,
+          interestCount: generateInterestCount(e),
+        }));
+        
         if (reset) {
           setEvents(newEvents);
           setCurrentIndex(0);
@@ -219,7 +261,8 @@ const SwipeScreen = ({ navigation }) => {
       } catch (error) {}
     }
     
-    if (currentIndex >= events.length - 5) {
+    // Preload more events early - never let them see the bottom
+    if (currentIndex >= events.length - 10) {
       fetchEvents(false);
     }
   }, [isAuthenticated, user, currentIndex, events.length, fetchEvents, stats]);
@@ -265,13 +308,20 @@ const SwipeScreen = ({ navigation }) => {
     }
 
     if (currentIndex >= events.length) {
+      // Never feel "done" - always tease more
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyEmoji}>✨</Text>
-          <Text style={styles.emptyTitle}>You're all caught up</Text>
-          <Text style={styles.emptySubtitle}>Check back later for new events</Text>
-          <Pressable style={styles.refreshButton} onPress={() => fetchEvents(true)}>
-            <Text style={styles.refreshButtonText}>Refresh</Text>
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: 16 }} />
+          <Text style={styles.emptyTitle}>Finding more...</Text>
+          <Text style={styles.emptySubtitle}>New events loading</Text>
+          <Pressable 
+            style={styles.refreshButton} 
+            onPress={() => {
+              Haptics.impactAsync('Light');
+              fetchEvents(true);
+            }}
+          >
+            <Text style={styles.refreshButtonText}>Show me more</Text>
           </Pressable>
         </View>
       );
