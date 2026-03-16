@@ -1,28 +1,63 @@
 /**
  * Scraper Runner - Run all scrapers with monitoring
- * 
- * Features:
- * - Runs all scrapers in sequence
- * - Retry logic
- * - Progress tracking
- * - Error recovery
  */
 
 const { pool } = require('../db');
 
-// Import all scrapers
+// Import all scrapers with correct paths and functions
 const scrapers = {
-  ticketmaster: () => require('./ticketmasterScraper'),
-  seatgeek: () => require('./seatgeekScraper'),
-  eventbrite: () => require('./eventbriteScraper'),
-  songkick: () => require('./songkickSitemapScraper'),
-  vividseats: () => require('./vividSeatsSitemapScraper'),
-  stubhub: () => require('./stubhubSitemapScraper'),
-  festivalnet: () => require('./festivalnetScraper'),
-  theater: () => require('./theaterScraper'),
-  sports: () => require('./sportsScraper'),
-  comedy: () => require('./comedyScraper'),
-  festivals: () => require('./festivalScraper'),
+  eventbrite: { 
+    load: () => require('./eventbriteScraper'), 
+    fn: 'syncAll' 
+  },
+  eventbriteSitemap: { 
+    load: () => require('./eventbriteSitemapScraper'), 
+    fn: 'syncAll' 
+  },
+  songkick: { 
+    load: () => require('./songkickSitemapScraper'), 
+    fn: 'syncAll' 
+  },
+  vividseats: { 
+    load: () => require('./vividSeatsSitemapScraper'), 
+    fn: 'syncAll' 
+  },
+  festivalnet: { 
+    load: () => require('./festivalnetScraper'), 
+    fn: 'syncAll' 
+  },
+  theater: { 
+    load: () => require('./theaterScraper'), 
+    fn: 'syncAll' 
+  },
+  sports: { 
+    load: () => require('./sportsScraper'), 
+    fn: 'syncAll' 
+  },
+  comedy: { 
+    load: () => require('./comedyScraper'), 
+    fn: 'syncAll' 
+  },
+  festivals: { 
+    load: () => require('./festivalScraper'), 
+    fn: 'syncAll' 
+  },
+  citydata: { 
+    load: () => require('./cityDataScraper'), 
+    fn: 'syncAll' 
+  },
+  concert: { 
+    load: () => require('./concertScraper'), 
+    fn: 'syncAll' 
+  },
+  axs: { 
+    load: () => require('./axsSitemapScraper'), 
+    fn: 'scrape' 
+  },
+  stubhub: { 
+    load: () => require('./stubhubSitemapScraper'), 
+    fn: 'scrape' 
+  },
 };
 
 // Track run status
@@ -35,8 +70,18 @@ let runStatus = {
   eventsAdded: 0,
 };
 
+// Get current event count
+async function getEventCount() {
+  try {
+    const result = await pool.query('SELECT COUNT(*) as count FROM events');
+    return parseInt(result.rows[0].count);
+  } catch (e) {
+    return 0;
+  }
+}
+
 // Run a single scraper with error handling
-async function runScraper(name, scraperModule) {
+async function runScraper(name, config) {
   console.log(`[ScraperRunner] Starting: ${name}`);
   runStatus.currentScraper = name;
   
@@ -44,38 +89,26 @@ async function runScraper(name, scraperModule) {
   const startTime = Date.now();
   
   try {
-    // Most scrapers have a sync() or scrape() function
-    if (typeof scraperModule.sync === 'function') {
-      await scraperModule.sync();
-    } else if (typeof scraperModule.scrape === 'function') {
-      await scraperModule.scrape();
-    } else if (typeof scraperModule.run === 'function') {
-      await scraperModule.run();
-    } else if (typeof scraperModule.default === 'function') {
-      await scraperModule.default();
-    } else {
-      console.log(`[ScraperRunner] ${name}: No sync/scrape/run function found`);
-      return { success: false, error: 'No entry function' };
+    const scraperModule = config.load();
+    const fn = scraperModule[config.fn];
+    
+    if (typeof fn !== 'function') {
+      throw new Error(`Function ${config.fn} not found in ${name}`);
     }
+    
+    await fn();
     
     const endCount = await getEventCount();
     const added = endCount - startCount;
     const duration = Math.round((Date.now() - startTime) / 1000);
     
     console.log(`[ScraperRunner] ✓ ${name}: +${added} events in ${duration}s`);
-    
     return { success: true, added, duration };
     
   } catch (e) {
-    console.error(`[ScraperRunner] ✗ ${name} failed:`, e.message);
+    console.error(`[ScraperRunner] ✗ ${name}:`, e.message);
     return { success: false, error: e.message };
   }
-}
-
-// Get current event count
-async function getEventCount() {
-  const result = await pool.query('SELECT COUNT(*) as count FROM events');
-  return parseInt(result.rows[0].count);
 }
 
 // Run all scrapers
@@ -104,6 +137,7 @@ async function runAll(options = {}) {
   for (const name of scraperNames) {
     if (!scrapers[name]) {
       console.log(`[ScraperRunner] Unknown scraper: ${name}`);
+      runStatus.failed.push({ name, error: 'Unknown scraper' });
       continue;
     }
     
@@ -111,15 +145,8 @@ async function runAll(options = {}) {
     let attempts = 0;
     
     while (attempts <= retries) {
-      try {
-        const scraperModule = scrapers[name]();
-        result = await runScraper(name, scraperModule);
-        
-        if (result.success) break;
-        
-      } catch (e) {
-        result = { success: false, error: e.message };
-      }
+      result = await runScraper(name, scrapers[name]);
+      if (result.success) break;
       
       attempts++;
       if (attempts <= retries) {
@@ -135,12 +162,13 @@ async function runAll(options = {}) {
       runStatus.failed.push({ name, error: result.error });
     }
     
-    // Delay between scrapers to avoid overwhelming APIs
+    // Delay between scrapers
     await new Promise(r => setTimeout(r, delayBetween));
   }
   
   runStatus.running = false;
   runStatus.finishedAt = new Date().toISOString();
+  runStatus.currentScraper = null;
   
   console.log(`[ScraperRunner] Complete! ${runStatus.completed.length} succeeded, ${runStatus.failed.length} failed, +${runStatus.eventsAdded} events`);
   
