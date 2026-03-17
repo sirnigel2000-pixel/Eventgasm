@@ -3,8 +3,9 @@
  */
 const axios = require('axios');
 
-// Google Geocoding
+// Google Geocoding - DISABLED pending Google billing resolution
 async function geocodeWithGoogle(address) {
+  return null; // Disabled
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey || !address) return null;
   

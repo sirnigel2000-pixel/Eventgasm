@@ -358,16 +358,15 @@ async function findBestImage(event) {
     }
   }
   
-  // 3. Venue photo (good for theater, arena shows) - only if under budget
-  if (venue_name && !isGoogleBudgetExceeded()) {
-    const venueImg = await getVenuePhoto(venue_name, city);
-    if (venueImg && !isImageRecentlyUsed(venueImg)) {
-      console.log(`[ImageEnricher] ✓ Venue: ${venue_name}`);
-      markImageUsed(venueImg);
-      googleCallsThisSession++;
-      return { url: venueImg, source: 'google_places', accuracy: 'medium' };
-    }
-  }
+  // 3. Venue photo - DISABLED pending Google billing resolution
+  // if (venue_name && !isGoogleBudgetExceeded()) {
+  //   const venueImg = await getVenuePhoto(venue_name, city);
+  //   if (venueImg && !isImageRecentlyUsed(venueImg)) {
+  //     markImageUsed(venueImg);
+  //     googleCallsThisSession++;
+  //     return { url: venueImg, source: 'google_places', accuracy: 'medium' };
+  //   }
+  // }
   
   // 4. Try Unsplash for performer (high quality, variety)
   if (performer && UNSPLASH_KEY) {
