@@ -603,19 +603,52 @@ router.post('/fix-names', authMiddleware, async (req, res) => {
   }
 });
 
-// Generate descriptions for events missing them
+// Description fill state
+let descRunning = false;
+
+// Generate descriptions for events missing them - loops until all done
 router.post('/fill-descriptions', authMiddleware, async (req, res) => {
   const { limit = 1000 } = req.query;
   
-  res.json({ message: 'Description generation started', limit });
+  if (descRunning) {
+    return res.json({ message: 'Already running' });
+  }
+
+  res.json({ message: 'Description generation started (looping until complete)', batchSize: parseInt(limit) });
   
+  descRunning = true;
+  let totalUpdated = 0;
+  let batches = 0;
+
   try {
     const { fillMissingDescriptions } = require('../services/descriptionGenerator');
-    const result = await fillMissingDescriptions(parseInt(limit));
-    console.log('[Admin] Description fill complete:', result);
+    
+    while (descRunning) {
+      const result = await fillMissingDescriptions(parseInt(limit));
+      totalUpdated += result.updated || 0;
+      batches++;
+      
+      console.log(`[DescGen] Batch ${batches} done: +${result.updated} | Total: ${totalUpdated}`);
+      
+      // Stop if nothing left to process
+      if (!result.updated || result.processed === 0) {
+        console.log(`[DescGen] All descriptions filled! Total: ${totalUpdated} across ${batches} batches`);
+        break;
+      }
+      
+      // Small pause between batches
+      await new Promise(r => setTimeout(r, 2000));
+    }
   } catch (e) {
-    console.error('[Admin] Description fill error:', e.message);
+    console.error('[DescGen] Error:', e.message);
+  } finally {
+    descRunning = false;
   }
+});
+
+router.post('/fill-descriptions/stop', authMiddleware, (req, res) => {
+  descRunning = false;
+  res.json({ message: 'Stopping after current batch' });
 });
 
 // Scrape/recategorize comedy events

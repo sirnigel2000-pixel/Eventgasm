@@ -28,7 +28,7 @@ const InterestButton = ({ eventId, userId, initialStats, compact = false }) => {
   const handleInterested = async () => {
     if (!userId) return; // Need to be logged in
     
-    haptics.selection();
+    haptics.selectionAsync();
     setLoading(true);
     
     try {
@@ -46,7 +46,7 @@ const InterestButton = ({ eventId, userId, initialStats, compact = false }) => {
   const handleGoing = async () => {
     if (!userId) return;
     
-    haptics.selection();
+    haptics.selectionAsync();
     setLoading(true);
     
     try {

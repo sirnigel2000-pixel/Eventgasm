@@ -537,7 +537,7 @@ export default function HomeScreen({ navigation }) {
               vibe.id === 'free' && styles.vibeChipFree
             ]}
             onPress={() => {
-              haptics.selection();
+              haptics.selectionAsync();
               setSelectedVibe(vibe.id);
             }}
           >
@@ -566,7 +566,7 @@ export default function HomeScreen({ navigation }) {
               selectedDateFilter === df.id && styles.dateChipSelected
             ]}
             onPress={() => {
-              haptics.selection();
+              haptics.selectionAsync();
               setSelectedDateFilter(df.id);
             }}
           >
