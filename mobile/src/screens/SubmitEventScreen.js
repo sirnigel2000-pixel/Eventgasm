@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
+const isWeb = Platform.OS === 'web';
+
 const API_BASE = 'https://eventgasm.onrender.com';
 
 const CATEGORIES = [
@@ -271,8 +273,8 @@ export default function SubmitEventScreen({ navigation }) {
     }
   };
 
-  // === CAMERA SCREEN ===
-  if (mode === 'camera') {
+  // === CAMERA SCREEN (mobile only) ===
+  if (mode === 'camera' && !isWeb) {
     return (
       <View style={styles.cameraContainer}>
         <CameraView ref={cameraRef} style={styles.camera} facing="back">
@@ -325,12 +327,20 @@ export default function SubmitEventScreen({ navigation }) {
 
         <Text style={styles.choiceTitle}>Add an Event</Text>
 
-        {/* BIG DUMB CAMERA BUTTON */}
-        <TouchableOpacity style={styles.bigCameraBtn} onPress={openCamera} activeOpacity={0.8}>
-          <Ionicons name="camera" size={52} color="#fff" />
-          <Text style={styles.bigCameraBtnLabel}>Scan a Poster</Text>
-          <Text style={styles.bigCameraBtnSub}>Point at any flyer or poster</Text>
-        </TouchableOpacity>
+        {/* Camera (mobile) or Image upload (web) */}
+        {isWeb ? (
+          <TouchableOpacity style={styles.bigCameraBtn} onPress={pickFromGallery} activeOpacity={0.8}>
+            <Ionicons name="image" size={52} color="#fff" />
+            <Text style={styles.bigCameraBtnLabel}>Upload a Flyer</Text>
+            <Text style={styles.bigCameraBtnSub}>Upload a photo of the event poster</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.bigCameraBtn} onPress={openCamera} activeOpacity={0.8}>
+            <Ionicons name="camera" size={52} color="#fff" />
+            <Text style={styles.bigCameraBtnLabel}>Scan a Poster</Text>
+            <Text style={styles.bigCameraBtnSub}>Point at any flyer or poster</Text>
+          </TouchableOpacity>
+        )}
 
         {/* URL input */}
         <View style={styles.urlRow}>
@@ -417,21 +427,47 @@ export default function SubmitEventScreen({ navigation }) {
         />
 
         {/* Date + Time row */}
-        <View style={styles.dateTimeRow}>
-          <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDateModal(true)}>
-            <Ionicons name="calendar-outline" size={18} color={form.start_time ? '#000' : '#bbb'} />
-            <Text style={[styles.dateBtnText, !form.start_time && { color: '#bbb' }]}>
-              {form.start_time ? formatDate(form.start_time) : 'Date *'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.timeBtn} onPress={() => setShowTimeModal(true)}>
-            <Ionicons name="time-outline" size={18} color={form.start_time ? '#000' : '#bbb'} />
-            <Text style={[styles.dateBtnText, !form.start_time && { color: '#bbb' }]}>
-              {form.start_time ? formatTime(form.start_time) : 'Time'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {isWeb ? (
+          <View style={styles.dateTimeRow}>
+            <View style={[styles.dateBtn, { flex: 2 }]}>
+              <Ionicons name="calendar-outline" size={18} color="#888" />
+              <TextInput
+                style={[styles.dateBtnText, { flex: 1 }]}
+                placeholder="Date (MM/DD/YYYY) *"
+                placeholderTextColor="#bbb"
+                value={form.start_time ? formatDate(form.start_time) : ''}
+                onChangeText={v => {
+                  const d = new Date(v);
+                  if (!isNaN(d)) update('start_time', d);
+                }}
+              />
+            </View>
+            <View style={[styles.timeBtn, { flex: 1 }]}>
+              <Ionicons name="time-outline" size={18} color="#888" />
+              <TextInput
+                style={[styles.dateBtnText, { flex: 1 }]}
+                placeholder="8:00 PM"
+                placeholderTextColor="#bbb"
+                value={form.start_time ? formatTime(form.start_time) : ''}
+              />
+            </View>
+          </View>
+        ) : (
+          <View style={styles.dateTimeRow}>
+            <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDateModal(true)}>
+              <Ionicons name="calendar-outline" size={18} color={form.start_time ? '#000' : '#bbb'} />
+              <Text style={[styles.dateBtnText, !form.start_time && { color: '#bbb' }]}>
+                {form.start_time ? formatDate(form.start_time) : 'Date *'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.timeBtn} onPress={() => setShowTimeModal(true)}>
+              <Ionicons name="time-outline" size={18} color={form.start_time ? '#000' : '#bbb'} />
+              <Text style={[styles.dateBtnText, !form.start_time && { color: '#bbb' }]}>
+                {form.start_time ? formatTime(form.start_time) : 'Time'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Venue + City */}
         <TextInput
