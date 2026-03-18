@@ -10,13 +10,16 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../context/FavoritesContext';
+import ContributionsTab from '../components/ContributionsTab';
 
 export default function ProfileScreen({ navigation }) {
   const { user, isSignedIn, signUp, signIn, signOut, updateProfile } = useAuth();
   const { favorites } = useFavorites();
   const [mode, setMode] = useState('benefits'); // benefits, signin, signup
+  const [profileTab, setProfileTab] = useState('activity'); // activity, contributions
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,11 +72,8 @@ export default function ProfileScreen({ navigation }) {
   // Signed in view
   if (isSignedIn) {
     return (
-      <ScrollView style={styles.container}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-
+      <View style={{ flex: 1, backgroundColor: '#fff' }}>
+        {/* Header */}
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -99,45 +99,59 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Benefits</Text>
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>☁️</Text>
-            <Text style={styles.benefitText}>Favorites synced across devices</Text>
-            <Text style={styles.checkmark}>✓</Text>
-          </View>
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>🎯</Text>
-            <Text style={styles.benefitText}>Personalized recommendations</Text>
-            <Text style={styles.checkmark}>✓</Text>
-          </View>
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>🔔</Text>
-            <Text style={styles.benefitText}>Event reminders</Text>
-            <Text style={styles.checkmark}>✓</Text>
-          </View>
+        {/* Tab switcher */}
+        <View style={profileStyles.tabRow}>
+          <TouchableOpacity
+            style={[profileStyles.tab, profileTab === 'activity' && profileStyles.tabActive]}
+            onPress={() => setProfileTab('activity')}
+          >
+            <Text style={[profileStyles.tabText, profileTab === 'activity' && profileStyles.tabTextActive]}>Activity</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[profileStyles.tab, profileTab === 'contributions' && profileStyles.tabActive]}
+            onPress={() => setProfileTab('contributions')}
+          >
+            <Ionicons name="ribbon-outline" size={14} color={profileTab === 'contributions' ? '#000' : '#888'} style={{ marginRight: 4 }} />
+            <Text style={[profileStyles.tabText, profileTab === 'contributions' && profileStyles.tabTextActive]}>Contributions</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Coming Soon</Text>
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>🏆</Text>
-            <Text style={styles.benefitText}>Badges & achievements</Text>
-          </View>
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>👥</Text>
-            <Text style={styles.benefitText}>Follow friends</Text>
-          </View>
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>🎟️</Text>
-            <Text style={styles.benefitText}>Ticket deals</Text>
-          </View>
-        </View>
+        {/* Activity tab content */}
+        {profileTab === 'activity' && (
+          <ScrollView style={{ flex: 1 }}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Your Benefits</Text>
+              <View style={styles.benefitRow}>
+                <Text style={styles.benefitIcon}>☁️</Text>
+                <Text style={styles.benefitText}>Favorites synced across devices</Text>
+                <Text style={styles.checkmark}>✓</Text>
+              </View>
+              <View style={styles.benefitRow}>
+                <Text style={styles.benefitIcon}>🎯</Text>
+                <Text style={styles.benefitText}>Personalized recommendations</Text>
+                <Text style={styles.checkmark}>✓</Text>
+              </View>
+              <View style={styles.benefitRow}>
+                <Text style={styles.benefitIcon}>🔔</Text>
+                <Text style={styles.benefitText}>Event reminders</Text>
+                <Text style={styles.checkmark}>✓</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
 
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
-      </ScrollView>
+        {/* Contributions tab */}
+        {profileTab === 'contributions' && (
+          <ContributionsTab
+            userId={user?.id}
+            username={user?.name}
+            navigation={navigation}
+          />
+        )}
+      </View>
     );
   }
 
@@ -498,5 +512,35 @@ const styles = StyleSheet.create({
   signOutText: {
     color: '#888',
     fontSize: 16,
+  },
+});
+
+const profileStyles = StyleSheet.create({
+  tabRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: '#000',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#888',
+    fontWeight: '500',
+  },
+  tabTextActive: {
+    color: '#000',
+    fontWeight: '700',
   },
 });

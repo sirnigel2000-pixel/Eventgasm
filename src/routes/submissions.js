@@ -116,6 +116,47 @@ router.get('/admin/queue', requireAdmin, async (req, res) => {
 router.post('/admin/:id/approve', requireAdmin, async (req, res) => {
   try {
     const result = await Submission.approve(req.params.id, req.body.admin_id || 'admin');
+
+    // Send push notification to submitter
+    try {
+      const { pool } = require('../db');
+      const sub = await pool.query(`SELECT user_id, title, is_update FROM submissions WHERE id = $1`, [req.params.id]);
+      if (sub.rows[0]) {
+        const { user_id, title, is_update } = sub.rows[0];
+        const userRow = await pool.query(`SELECT push_token FROM users WHERE id = $1`, [user_id]);
+        const token = userRow.rows[0]?.push_token;
+        if (token) {
+          await sendPushNotification(token, {
+            title: is_update ? 'Update approved!' : 'Event is live!',
+            body: is_update
+              ? `Your update to "${title}" is now live on Eventgasm.`
+              : `"${title}" is now live on Eventgasm!`,
+            data: { type: 'submission_approved', event_id: result.eventId }
+          });
+        }
+
+        // Check if they hit a new tier - notify
+        const stats = await pool.query(`SELECT approved_count, tier FROM user_contributions WHERE user_id = $1`, [user_id]);
+        if (stats.rows[0]) {
+          const { approved_count, tier } = stats.rows[0];
+          const tierMessages = {
+            verified_contributor: approved_count === 5 ? "You're now a Verified Contributor! 🛡️" : null,
+            top_contributor: approved_count === 10 ? "You've reached Top Contributor status! 🏆" : null,
+          };
+          const tierMsg = tierMessages[tier];
+          if (tierMsg && token) {
+            await sendPushNotification(token, {
+              title: 'New badge earned!',
+              body: tierMsg,
+              data: { type: 'tier_up', tier }
+            });
+          }
+        }
+      }
+    } catch (notifError) {
+      console.log('[Submissions] Push notification error:', notifError.message);
+    }
+
     res.json({ success: true, event_id: result.eventId });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -126,10 +167,47 @@ router.post('/admin/:id/approve', requireAdmin, async (req, res) => {
 router.post('/admin/:id/reject', requireAdmin, async (req, res) => {
   try {
     await Submission.reject(req.params.id, req.body.admin_id || 'admin', req.body.reason);
+
+    // Send push notification
+    try {
+      const { pool } = require('../db');
+      const sub = await pool.query(`SELECT user_id, title FROM submissions WHERE id = $1`, [req.params.id]);
+      if (sub.rows[0]) {
+        const { user_id, title } = sub.rows[0];
+        const userRow = await pool.query(`SELECT push_token FROM users WHERE id = $1`, [user_id]);
+        const token = userRow.rows[0]?.push_token;
+        if (token) {
+          await sendPushNotification(token, {
+            title: 'Event not approved',
+            body: req.body.reason
+              ? `"${title}" wasn't approved: ${req.body.reason}`
+              : `"${title}" wasn't approved this time.`,
+            data: { type: 'submission_rejected' }
+          });
+        }
+      }
+    } catch (notifError) {
+      console.log('[Submissions] Push notification error:', notifError.message);
+    }
+
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
+
+// Push notification helper (Expo Push Service - free, no Google)
+async function sendPushNotification(token, { title, body, data = {} }) {
+  if (!token || !token.startsWith('ExponentPushToken')) return;
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: token, title, body, data, sound: 'default' }),
+    });
+  } catch (e) {
+    console.log('[Push] Failed:', e.message);
+  }
+}
 
 module.exports = router;
