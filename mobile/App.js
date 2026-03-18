@@ -19,6 +19,8 @@ import ListsScreen from './src/screens/ListsScreen';
 import TonightScreen from './src/screens/TonightScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import OnboardingScreen, { checkOnboardingComplete } from './src/screens/OnboardingScreen';
+import SubmitEventScreen from './src/screens/SubmitEventScreen';
+import AdminReviewScreen from './src/screens/AdminReviewScreen';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { addNotificationListeners, registerForPushNotifications } from './src/services/notifications';
@@ -46,6 +48,8 @@ function MainTabs() {
             iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'ProfileTab') {
             iconName = focused ? 'person' : 'person-outline';
+          } else if (route.name === 'SubmitTab') {
+            iconName = focused ? 'add-circle' : 'add-circle-outline';
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
@@ -95,6 +99,17 @@ function MainTabs() {
         name="SocialTab" 
         component={SocialScreen}
         options={{ tabBarLabel: 'Friends' }}
+      />
+      <Tab.Screen
+        name="SubmitTab"
+        component={SubmitEventScreen}
+        options={{
+          tabBarLabel: 'Add Event',
+          tabBarActiveTintColor: '#000',
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons name={focused ? 'add-circle' : 'add-circle-outline'} size={size + 4} color={color} />
+          ),
+        }}
       />
       <Tab.Screen 
         name="ProfileTab" 

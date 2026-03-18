@@ -15,6 +15,7 @@ const usersRouter = require('./routes/users');
 // const squadsRouter = require('./routes/squads');
 // const activityRouter = require('./routes/activity');
 const shareRouter = require('./routes/share');
+const submissionsRouter = require('./routes/submissions');
 const syncManager = require('./services/syncManager');
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/api/users', usersRouter);
 // app.use('/api/activity', activityRouter);
 app.use('/share', shareRouter);
 app.use('/admin', adminRouter);
+app.use('/api/submissions', submissionsRouter);
 
 // Health check
 app.get('/health', (req, res) => {
