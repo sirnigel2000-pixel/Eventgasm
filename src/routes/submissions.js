@@ -12,6 +12,7 @@
 const express = require('express');
 const router = express.Router();
 const Submission = require('../models/Submission');
+const { scrapeUrl, scrapeSourcePage } = require('../services/urlScraper');
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'eventgasm-admin';
 
@@ -91,6 +92,117 @@ router.get('/leaderboard', async (req, res) => {
   try {
     const leaders = await Submission.getLeaderboard(20);
     res.json({ leaderboard: leaders });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Scrape event details from a URL
+router.post('/scrape-url', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'URL required' });
+    const result = await scrapeUrl(url);
+    if (!result.ok) return res.status(422).json({ error: result.error, event: null });
+    res.json({ event: result.event });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============ SOURCE LINKS ============
+// Link a social page / venue / organizer as an ongoing event source
+
+// Create a source link
+router.post('/source-links', async (req, res) => {
+  try {
+    const { user_id, url, label } = req.body;
+    if (!user_id) return res.status(401).json({ error: 'Login required' });
+    if (!url) return res.status(400).json({ error: 'URL required' });
+
+    const { pool } = require('../db');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS source_links (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        url TEXT NOT NULL,
+        label TEXT,
+        last_scraped_at TIMESTAMPTZ,
+        events_found INT DEFAULT 0,
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, url)
+      )
+    `);
+
+    // Test scrape immediately
+    const scrapeResult = await scrapeSourcePage(url);
+    const eventsFound = scrapeResult.events?.length || 0;
+
+    const result = await pool.query(`
+      INSERT INTO source_links (user_id, url, label, last_scraped_at, events_found)
+      VALUES ($1, $2, $3, NOW(), $4)
+      ON CONFLICT (user_id, url) DO UPDATE SET
+        label = EXCLUDED.label, status = 'active', last_scraped_at = NOW(), events_found = $4
+      RETURNING *
+    `, [user_id, url, label || url, eventsFound]);
+
+    // Auto-submit any events found as pending submissions
+    let autoSubmitted = 0;
+    if (scrapeResult.events?.length) {
+      for (const event of scrapeResult.events.slice(0, 20)) {
+        try {
+          if (!event.title || !event.start_time) continue;
+          await Submission.create({
+            ...event,
+            user_id,
+            username: 'source_link',
+            source_type: 'source_link',
+            source_url: url,
+          });
+          autoSubmitted++;
+        } catch(e) { /* skip dupes */ }
+      }
+    }
+
+    res.json({
+      success: true,
+      source_link: result.rows[0],
+      events_found: eventsFound,
+      auto_submitted: autoSubmitted,
+      message: eventsFound > 0
+        ? `Found ${eventsFound} events on this page. ${autoSubmitted} submitted for review.`
+        : 'Source linked! We\'ll check it periodically for new events.',
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get user's source links
+router.get('/source-links', async (req, res) => {
+  try {
+    const userId = req.query.user_id;
+    if (!userId) return res.status(401).json({ error: 'Login required' });
+    const { pool } = require('../db');
+    const result = await pool.query(
+      `SELECT * FROM source_links WHERE user_id = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+    res.json({ source_links: result.rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete a source link
+router.delete('/source-links/:id', async (req, res) => {
+  try {
+    const userId = req.query.user_id;
+    if (!userId) return res.status(401).json({ error: 'Login required' });
+    const { pool } = require('../db');
+    await pool.query(`DELETE FROM source_links WHERE id = $1 AND user_id = $2`, [req.params.id, userId]);
+    res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
