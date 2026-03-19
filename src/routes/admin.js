@@ -992,7 +992,7 @@ router.get('/maps-count', authMiddleware, async (req, res) => {
 router.post('/clear-google-images', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
-      UPDATE events SET image_url = NULL, image_source = NULL, image_accuracy = NULL
+      UPDATE events SET image_url = NULL
       WHERE image_url ILIKE '%googleapis.com%'
         OR image_url ILIKE '%googleusercontent.com%'
         OR image_url ILIKE '%maps.google%'
