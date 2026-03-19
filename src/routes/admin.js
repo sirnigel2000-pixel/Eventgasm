@@ -987,3 +987,23 @@ router.get('/maps-count', authMiddleware, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// POST /admin/clear-google-images - Delete all Google Maps image URLs
+router.post('/clear-google-images', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      UPDATE events SET image_url = NULL, image_source = NULL, image_accuracy = NULL
+      WHERE image_url ILIKE '%googleapis.com%'
+        OR image_url ILIKE '%googleusercontent.com%'
+        OR image_url ILIKE '%maps.google%'
+        OR image_url ILIKE '%gstatic.com%'
+        OR image_url ILIKE '%google.com/maps%'
+    `);
+    const verify = await pool.query(
+      "SELECT COUNT(*) as remaining FROM events WHERE image_url ILIKE '%google%'"
+    );
+    res.json({ cleared: result.rowCount, remaining: parseInt(verify.rows[0].remaining) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
