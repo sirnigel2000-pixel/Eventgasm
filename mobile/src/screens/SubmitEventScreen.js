@@ -192,9 +192,9 @@ export default function SubmitEventScreen({ navigation, route }) {
         {/* === URL TAB === */}
         {tab === 'url' && (
           <View>
-            <Text style={s.sectionTitle}>Paste an event link</Text>
+            <Text style={s.sectionTitle}>Paste an event page link</Text>
             <Text style={s.sectionSub}>
-              Works with Eventbrite, Ticketmaster, Facebook events, venue websites, and more.
+              Works with Facebook events, Eventbrite, venue websites, local event pages, and more. No tickets required.
             </Text>
 
             <View style={s.inputRow}>
@@ -225,7 +225,7 @@ export default function SubmitEventScreen({ navigation, route }) {
             <View style={s.tipBox}>
               <Ionicons name="bulb-outline" size={16} color="#7c3aed" />
               <Text style={s.tipText}>
-                We'll automatically pull the event name, date, venue, and image from the page.
+                We'll automatically pull the event name, date, and venue from the page.
               </Text>
             </View>
           </View>
