@@ -117,46 +117,80 @@ function groupEventsByShowtime(events) {
 }
 
 // GET /api/events/recommended - Personalized event recommendations
-// Uses location + user preferences to sort events
+// Uses location + swipe history to serve a smart, never-repeated feed
 router.get('/recommended', async (req, res) => {
   try {
     const {
       lat, lng, radius = 50,
-      preferred_categories,
+      user_id,
       limit = 50,
       offset = 0,
     } = req.query;
 
     let events = [];
-    
-    // If we have location, get nearby events
+
+    // Get nearby events (fetch 4x to have room after filtering)
     if (lat && lng) {
       events = await Event.findNearby({
         latitude: parseFloat(lat),
         longitude: parseFloat(lng),
         radiusMiles: parseInt(radius),
-        limit: Math.min(parseInt(limit) * 2, 200), // Fetch extra for filtering
+        limit: Math.min(parseInt(limit) * 4, 400),
         offset: parseInt(offset),
       });
     } else {
-      // Fallback: get upcoming events sorted by popularity
-      events = await Event.getTrending({ limit: parseInt(limit) * 2 });
+      events = await Event.getTrending({ limit: parseInt(limit) * 4 });
     }
 
-    // Boost preferred categories to the top
-    if (preferred_categories) {
-      const preferred = preferred_categories.split(',').map(c => c.trim().toLowerCase());
-      events = events.map(e => ({
-        ...e,
-        _boost: preferred.includes((e.category || '').toLowerCase()) ? 100 : 0
-      }));
-      
-      // Sort by boost (preferred first), then by original order (distance)
-      events.sort((a, b) => {
-        if (b._boost !== a._boost) return b._boost - a._boost;
-        return 0; // Keep original distance-based order for same boost
-      });
+    // Load user's swipe history - exclude already-seen events
+    let likedCategories = {};
+    let dislikedCategories = {};
+    let seenEventIds = new Set();
+
+    if (user_id) {
+      try {
+        const { pool } = require('../db');
+        const history = await pool.query(`
+          SELECT event_id, status, e.category
+          FROM user_event_interactions uei
+          JOIN events e ON e.id = uei.event_id
+          WHERE uei.user_id = $1
+        `, [user_id]);
+
+        for (const row of history.rows) {
+          seenEventIds.add(row.event_id);
+          const cat = (row.category || '').toLowerCase();
+          if (row.status === 'going' || row.status === 'want_to' || row.status === 'maybe') {
+            likedCategories[cat] = (likedCategories[cat] || 0) + 1;
+          } else if (row.status === 'not_interested') {
+            dislikedCategories[cat] = (dislikedCategories[cat] || 0) + 1;
+          }
+        }
+      } catch (e) {
+        console.log('[Recommended] Could not load user history:', e.message);
+      }
     }
+
+    // Exclude already-seen events
+    events = events.filter(e => !seenEventIds.has(e.id));
+
+    // Score each event based on preferences
+    const totalLikes = Object.values(likedCategories).reduce((a, b) => a + b, 0) || 1;
+    const totalDislikes = Object.values(dislikedCategories).reduce((a, b) => a + b, 0) || 1;
+
+    events = events.map(e => {
+      const cat = (e.category || '').toLowerCase();
+      const likeScore = ((likedCategories[cat] || 0) / totalLikes) * 100;
+      const dislikeScore = ((dislikedCategories[cat] || 0) / totalDislikes) * 30;
+      return { ...e, _score: likeScore - dislikeScore };
+    });
+
+    // Sort: high-score first, with some randomness to keep it fresh
+    events.sort((a, b) => {
+      const scoreDiff = b._score - a._score;
+      if (Math.abs(scoreDiff) > 20) return scoreDiff; // Clear preference wins
+      return Math.random() - 0.5; // Otherwise shuffle for variety
+    });
 
     // Filter out events without images (swipe needs visual appeal)
     events = events.filter(e => e.image_url);
