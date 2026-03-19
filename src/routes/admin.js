@@ -975,3 +975,15 @@ router.get('/venue-stats', authMiddleware, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// GET /admin/maps-count - Count remaining Google Maps URLs
+router.get('/maps-count', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT COUNT(*) as maps_remaining FROM events WHERE image_url LIKE '%maps.googleapis.com%' OR image_url LIKE '%googleusercontent.com%' OR image_url LIKE '%maps.google%'"
+    );
+    res.json({ maps_remaining: parseInt(result.rows[0].maps_remaining) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
