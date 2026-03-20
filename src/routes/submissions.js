@@ -312,6 +312,28 @@ router.post('/admin/:id/reject', requireAdmin, async (req, res) => {
   }
 });
 
+// One-time migration: fix submissions where username = 'source_link'
+router.post('/admin/fix-source-link-usernames', requireAdmin, async (req, res) => {
+  try {
+    const { pool } = require('../db');
+    // Find all submissions with username = 'source_link' that have a valid user_id
+    const bad = await pool.query(`
+      SELECT s.id, s.user_id, u.username
+      FROM submissions s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.username = 'source_link' AND u.username IS NOT NULL
+    `);
+    if (bad.rows.length === 0) return res.json({ fixed: 0, message: 'Nothing to fix' });
+
+    for (const row of bad.rows) {
+      await pool.query(`UPDATE submissions SET username = $1 WHERE id = $2`, [row.username, row.id]);
+    }
+    res.json({ fixed: bad.rows.length, message: `Fixed ${bad.rows.length} submissions` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Push notification helper (Expo Push Service - free, no Google)
 async function sendPushNotification(token, { title, body, data = {} }) {
   if (!token || !token.startsWith('ExponentPushToken')) return;
