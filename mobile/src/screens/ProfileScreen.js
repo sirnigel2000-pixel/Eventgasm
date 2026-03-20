@@ -137,6 +137,15 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={styles.checkmark}>✓</Text>
               </View>
             </View>
+            {/* Admin panel - Joey & Jeff only */}
+            {(user?.name?.toLowerCase().includes('joey') || user?.name?.toLowerCase().includes('jeff') || user?.name?.toLowerCase().includes('nigel') || user?.email?.includes('sirnigel2000')) && (
+              <TouchableOpacity
+                style={[styles.signOutButton, { backgroundColor: '#7c3aed', marginBottom: 8 }]}
+                onPress={() => navigation.navigate('AdminReview')}
+              >
+                <Text style={[styles.signOutText, { color: '#fff' }]}>⚡ Admin: Review Submissions</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
               <Text style={styles.signOutText}>Sign Out</Text>
             </TouchableOpacity>

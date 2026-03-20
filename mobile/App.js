@@ -172,6 +172,7 @@ export default function App() {
           <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="Map" component={MapScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="AdminReview" component={AdminReviewScreen} options={{ headerShown: true, title: 'Review Submissions' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </FavoritesProvider>
