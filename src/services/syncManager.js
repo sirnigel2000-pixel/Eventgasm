@@ -367,10 +367,10 @@ async function runContinuousEnrichment() {
   }
 }
 
-// Start continuous enrichment on server boot (after 30 sec delay)
-setTimeout(() => {
-  runContinuousEnrichment();
-}, 30000);
+// AUTO-START DISABLED - Google API incident, manual trigger only
+// setTimeout(() => {
+//   runContinuousEnrichment();
+// }, 30000);
 
 // Also expose for manual trigger
 module.exports.runContinuousEnrichment = runContinuousEnrichment;
