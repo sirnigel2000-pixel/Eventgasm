@@ -239,7 +239,7 @@ router.get('/recommended', async (req, res) => {
     res.json({
       success: true,
       count: formattedEvents.length,
-      personalized: !!preferred_categories,
+      personalized: Object.keys(likedCategories).length > 0,
       events: formattedEvents,
     });
   } catch (error) {
