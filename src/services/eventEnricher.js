@@ -515,14 +515,14 @@ function isAutoEnrichmentRunning() {
   return enrichInterval !== null;
 }
 
-// Auto-start on server boot if there's work to do
-setTimeout(async () => {
-  const stats = await getIncompleteStats();
-  if (parseInt(stats.missing_coords) > 1000) {
-    console.log('[Enricher] Auto-starting enrichment on boot...');
-    startAutoEnrichment(10000); // Every 10 seconds
-  }
-}, 30000); // Wait 30s after server starts
+// AUTO-START DISABLED - Google API incident, manual trigger only
+// setTimeout(async () => {
+//   const stats = await getIncompleteStats();
+//   if (parseInt(stats.missing_coords) > 1000) {
+//     console.log('[Enricher] Auto-starting enrichment on boot...');
+//     startAutoEnrichment(10000); // Every 10 seconds
+//   }
+// }, 30000); // Wait 30s after server starts
 
 module.exports.startAutoEnrichment = startAutoEnrichment;
 module.exports.stopAutoEnrichment = stopAutoEnrichment;
