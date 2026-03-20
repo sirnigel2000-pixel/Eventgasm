@@ -147,6 +147,10 @@ router.post('/source-links', async (req, res) => {
       RETURNING *
     `, [user_id, url, label || url, eventsFound]);
 
+    // Look up actual username
+    const userRow = await pool.query(`SELECT username FROM users WHERE id = $1`, [user_id]);
+    const submitterUsername = userRow.rows[0]?.username || user_id;
+
     // Auto-submit any events found as pending submissions
     let autoSubmitted = 0;
     if (scrapeResult.events?.length) {
@@ -156,7 +160,7 @@ router.post('/source-links', async (req, res) => {
           await Submission.create({
             ...event,
             user_id,
-            username: 'source_link',
+            username: submitterUsername,
             source_type: 'source_link',
             source_url: url,
           });
