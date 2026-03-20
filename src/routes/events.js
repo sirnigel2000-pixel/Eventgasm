@@ -192,8 +192,8 @@ router.get('/recommended', async (req, res) => {
       return Math.random() - 0.5; // Otherwise shuffle for variety
     });
 
-    // Filter out events without images (swipe needs visual appeal)
-    events = events.filter(e => e.image_url);
+    // NOTE: Image filter temporarily removed - images being re-enriched after Google API cleanup
+    // events = events.filter(e => e.image_url);
     
     // Filter out garbage/placeholder events
     const garbagePatterns = [
