@@ -1007,3 +1007,14 @@ router.post('/clear-google-images', authMiddleware, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// GET /admin/users-list - List all users (admin only)
+router.get('/users-list', authMiddleware, async (req, res) => {
+  try {
+    const { pool } = require('../db');
+    const result = await pool.query(`SELECT id, name, email, created_at FROM users ORDER BY created_at DESC LIMIT 100`);
+    res.json({ total: result.rows.length, users: result.rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
