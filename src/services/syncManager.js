@@ -377,6 +377,9 @@ module.exports.runContinuousEnrichment = runContinuousEnrichment;
 
 // After main enrichment, fill states for events with coords but no state
 async function fillStatesFromCoords() {
+  // DISABLED - Google API incident
+  console.log('[Enricher] fillStatesFromCoords disabled - Google API off');
+  return { updated: 0 };
   console.log('[Enricher] Starting state fill from coords...');
   const { pool } = require('../db');
   const axios = require('axios');
